@@ -35,8 +35,8 @@ Total time is about 60–90 min, mostly YOLO training.
 """)
 
 code(r"""
-# 1. SETUP. Change GITHUB_USER to your GitHub username.
-GITHUB_USER = "YOUR-GITHUB-USERNAME"
+# 1. SETUP: clone the repo (public) and install packages.
+GITHUB_USER = "anhtruong27"
 REPO = "pork-rasher-inspection"
 
 import os, sys

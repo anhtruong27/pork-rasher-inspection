@@ -1,5 +1,7 @@
 # Pork Rasher Tray Inspection
 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/anhtruong27/pork-rasher-inspection/blob/main/notebooks/run_pipeline.ipynb)
+
 Automated visual inspection of packaged pork rashers: **detect and localise packaging defects
 in a tray image, then decide whether the tray passes or fails**.
 
@@ -80,7 +82,7 @@ pork-rasher-inspection/
 ## 6. How to run
 
 **Full pipeline (recommended):** open `notebooks/run_pipeline.ipynb` in Google Colab, select a
-T4 GPU runtime, set `GITHUB_USER`, and *Run all*. You will be asked for a Roboflow API key
+T4 GPU runtime and *Run all* (or click the Open in Colab badge above). You will be asked for a Roboflow API key
 (never stored in the repo).
 
 **Locally:**
