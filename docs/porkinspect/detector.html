@@ -233,23 +233,44 @@ without it installed.</p>
 </span><span id="L-151"><a href="#L-151"><span class="linenos">151</span></a>                     <span class="k">for</span> <span class="n">dets</span> <span class="ow">in</span> <span class="n">detections</span><span class="p">])</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">detections</span><span class="p">)</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="n">n_classes</span><span class="p">))</span>
 </span><span id="L-152"><a href="#L-152"><span class="linenos">152</span></a>
 </span><span id="L-153"><a href="#L-153"><span class="linenos">153</span></a>
-</span><span id="L-154"><a href="#L-154"><span class="linenos">154</span></a><span class="k">def</span><span class="w"> </span><span class="nf">model_gflops</span><span class="p">(</span><span class="n">model</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
-</span><span id="L-155"><a href="#L-155"><span class="linenos">155</span></a><span class="w">    </span><span class="sd">"""GFLOPs per image reported by Ultralytics (at 640 px), or None if unavailable.</span>
+</span><span id="L-154"><a href="#L-154"><span class="linenos">154</span></a><span class="k">def</span><span class="w"> </span><span class="nf">model_gflops</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">imgsz</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">640</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
+</span><span id="L-155"><a href="#L-155"><span class="linenos">155</span></a><span class="w">    </span><span class="sd">"""GFLOPs for one image at ``imgsz``.</span>
 </span><span id="L-156"><a href="#L-156"><span class="linenos">156</span></a>
-</span><span id="L-157"><a href="#L-157"><span class="linenos">157</span></a><span class="sd">    Parameters</span>
-</span><span id="L-158"><a href="#L-158"><span class="linenos">158</span></a><span class="sd">    ----------</span>
-</span><span id="L-159"><a href="#L-159"><span class="linenos">159</span></a><span class="sd">    model : ultralytics.YOLO</span>
-</span><span id="L-160"><a href="#L-160"><span class="linenos">160</span></a><span class="sd">        Detector.</span>
-</span><span id="L-161"><a href="#L-161"><span class="linenos">161</span></a>
-</span><span id="L-162"><a href="#L-162"><span class="linenos">162</span></a><span class="sd">    Returns</span>
-</span><span id="L-163"><a href="#L-163"><span class="linenos">163</span></a><span class="sd">    -------</span>
-</span><span id="L-164"><a href="#L-164"><span class="linenos">164</span></a><span class="sd">    float or None</span>
-</span><span id="L-165"><a href="#L-165"><span class="linenos">165</span></a><span class="sd">    """</span>
-</span><span id="L-166"><a href="#L-166"><span class="linenos">166</span></a>    <span class="k">try</span><span class="p">:</span>
-</span><span id="L-167"><a href="#L-167"><span class="linenos">167</span></a>        <span class="n">info</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-</span><span id="L-168"><a href="#L-168"><span class="linenos">168</span></a>        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">info</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="k">if</span> <span class="n">info</span> <span class="k">else</span> <span class="kc">None</span>
-</span><span id="L-169"><a href="#L-169"><span class="linenos">169</span></a>    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>  <span class="c1"># pragma: no cover - depends on ultralytics version</span>
-</span><span id="L-170"><a href="#L-170"><span class="linenos">170</span></a>        <span class="k">return</span> <span class="kc">None</span>
+</span><span id="L-157"><a href="#L-157"><span class="linenos">157</span></a><span class="sd">    Tries Ultralytics' own counter first; if that is unavailable (it returned nothing in</span>
+</span><span id="L-158"><a href="#L-158"><span class="linenos">158</span></a><span class="sd">    run 1), falls back to `porkinspect.performance.count_flops` on the underlying</span>
+</span><span id="L-159"><a href="#L-159"><span class="linenos">159</span></a><span class="sd">    PyTorch network, which counts Conv2d and Linear layers only.</span>
+</span><span id="L-160"><a href="#L-160"><span class="linenos">160</span></a>
+</span><span id="L-161"><a href="#L-161"><span class="linenos">161</span></a><span class="sd">    Parameters</span>
+</span><span id="L-162"><a href="#L-162"><span class="linenos">162</span></a><span class="sd">    ----------</span>
+</span><span id="L-163"><a href="#L-163"><span class="linenos">163</span></a><span class="sd">    model : ultralytics.YOLO</span>
+</span><span id="L-164"><a href="#L-164"><span class="linenos">164</span></a><span class="sd">        Detector.</span>
+</span><span id="L-165"><a href="#L-165"><span class="linenos">165</span></a><span class="sd">    imgsz : int</span>
+</span><span id="L-166"><a href="#L-166"><span class="linenos">166</span></a><span class="sd">        Square input size in pixels.</span>
+</span><span id="L-167"><a href="#L-167"><span class="linenos">167</span></a>
+</span><span id="L-168"><a href="#L-168"><span class="linenos">168</span></a><span class="sd">    Returns</span>
+</span><span id="L-169"><a href="#L-169"><span class="linenos">169</span></a><span class="sd">    -------</span>
+</span><span id="L-170"><a href="#L-170"><span class="linenos">170</span></a><span class="sd">    float or None</span>
+</span><span id="L-171"><a href="#L-171"><span class="linenos">171</span></a><span class="sd">        GFLOPs per image, or None if neither method works.</span>
+</span><span id="L-172"><a href="#L-172"><span class="linenos">172</span></a><span class="sd">    """</span>
+</span><span id="L-173"><a href="#L-173"><span class="linenos">173</span></a>    <span class="k">try</span><span class="p">:</span>
+</span><span id="L-174"><a href="#L-174"><span class="linenos">174</span></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">ultralytics.utils.torch_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_flops</span>
+</span><span id="L-175"><a href="#L-175"><span class="linenos">175</span></a>
+</span><span id="L-176"><a href="#L-176"><span class="linenos">176</span></a>        <span class="n">g</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">get_flops</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="n">imgsz</span><span class="p">))</span>
+</span><span id="L-177"><a href="#L-177"><span class="linenos">177</span></a>        <span class="k">if</span> <span class="n">g</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+</span><span id="L-178"><a href="#L-178"><span class="linenos">178</span></a>            <span class="k">return</span> <span class="n">g</span>
+</span><span id="L-179"><a href="#L-179"><span class="linenos">179</span></a>    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>  <span class="c1"># pragma: no cover - depends on ultralytics version</span>
+</span><span id="L-180"><a href="#L-180"><span class="linenos">180</span></a>        <span class="k">pass</span>
+</span><span id="L-181"><a href="#L-181"><span class="linenos">181</span></a>    <span class="k">try</span><span class="p">:</span>
+</span><span id="L-182"><a href="#L-182"><span class="linenos">182</span></a>        <span class="kn">import</span><span class="w"> </span><span class="nn">copy</span>
+</span><span id="L-183"><a href="#L-183"><span class="linenos">183</span></a>
+</span><span id="L-184"><a href="#L-184"><span class="linenos">184</span></a>        <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+</span><span id="L-185"><a href="#L-185"><span class="linenos">185</span></a>
+</span><span id="L-186"><a href="#L-186"><span class="linenos">186</span></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">.performance</span><span class="w"> </span><span class="kn">import</span> <span class="n">count_flops</span>
+</span><span id="L-187"><a href="#L-187"><span class="linenos">187</span></a>
+</span><span id="L-188"><a href="#L-188"><span class="linenos">188</span></a>        <span class="n">net</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">model</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span>
+</span><span id="L-189"><a href="#L-189"><span class="linenos">189</span></a>        <span class="k">return</span> <span class="n">count_flops</span><span class="p">(</span><span class="n">net</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">imgsz</span><span class="p">,</span> <span class="n">imgsz</span><span class="p">))[</span><span class="s2">"flops"</span><span class="p">]</span> <span class="o">/</span> <span class="mf">1e9</span>
+</span><span id="L-190"><a href="#L-190"><span class="linenos">190</span></a>    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+</span><span id="L-191"><a href="#L-191"><span class="linenos">191</span></a>        <span class="k">return</span> <span class="kc">None</span>
 </span></pre></div>
 
 
@@ -540,45 +561,72 @@ Number of classes.</li>
 <div class="attr function">
             
         <span class="def">def</span>
-        <span class="name">model_gflops</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">model</span></span><span class="return-annotation">) -> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span>:</span></span>
+        <span class="name">model_gflops</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">model</span>, </span><span class="param"><span class="n">imgsz</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">640</span></span><span class="return-annotation">) -> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span>:</span></span>
 
                 <label class="view-source-button" for="model_gflops-view-source"><span>View Source</span></label>
 
     </div>
     <a class="headerlink" href="#model_gflops"></a>
-            <div class="pdoc-code codehilite"><pre><span></span><span id="model_gflops-155"><a href="#model_gflops-155"><span class="linenos">155</span></a><span class="k">def</span><span class="w"> </span><span class="nf">model_gflops</span><span class="p">(</span><span class="n">model</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
-</span><span id="model_gflops-156"><a href="#model_gflops-156"><span class="linenos">156</span></a><span class="w">    </span><span class="sd">"""GFLOPs per image reported by Ultralytics (at 640 px), or None if unavailable.</span>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="model_gflops-155"><a href="#model_gflops-155"><span class="linenos">155</span></a><span class="k">def</span><span class="w"> </span><span class="nf">model_gflops</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">imgsz</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">640</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
+</span><span id="model_gflops-156"><a href="#model_gflops-156"><span class="linenos">156</span></a><span class="w">    </span><span class="sd">"""GFLOPs for one image at ``imgsz``.</span>
 </span><span id="model_gflops-157"><a href="#model_gflops-157"><span class="linenos">157</span></a>
-</span><span id="model_gflops-158"><a href="#model_gflops-158"><span class="linenos">158</span></a><span class="sd">    Parameters</span>
-</span><span id="model_gflops-159"><a href="#model_gflops-159"><span class="linenos">159</span></a><span class="sd">    ----------</span>
-</span><span id="model_gflops-160"><a href="#model_gflops-160"><span class="linenos">160</span></a><span class="sd">    model : ultralytics.YOLO</span>
-</span><span id="model_gflops-161"><a href="#model_gflops-161"><span class="linenos">161</span></a><span class="sd">        Detector.</span>
-</span><span id="model_gflops-162"><a href="#model_gflops-162"><span class="linenos">162</span></a>
-</span><span id="model_gflops-163"><a href="#model_gflops-163"><span class="linenos">163</span></a><span class="sd">    Returns</span>
-</span><span id="model_gflops-164"><a href="#model_gflops-164"><span class="linenos">164</span></a><span class="sd">    -------</span>
-</span><span id="model_gflops-165"><a href="#model_gflops-165"><span class="linenos">165</span></a><span class="sd">    float or None</span>
-</span><span id="model_gflops-166"><a href="#model_gflops-166"><span class="linenos">166</span></a><span class="sd">    """</span>
-</span><span id="model_gflops-167"><a href="#model_gflops-167"><span class="linenos">167</span></a>    <span class="k">try</span><span class="p">:</span>
-</span><span id="model_gflops-168"><a href="#model_gflops-168"><span class="linenos">168</span></a>        <span class="n">info</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-</span><span id="model_gflops-169"><a href="#model_gflops-169"><span class="linenos">169</span></a>        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">info</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="k">if</span> <span class="n">info</span> <span class="k">else</span> <span class="kc">None</span>
-</span><span id="model_gflops-170"><a href="#model_gflops-170"><span class="linenos">170</span></a>    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>  <span class="c1"># pragma: no cover - depends on ultralytics version</span>
-</span><span id="model_gflops-171"><a href="#model_gflops-171"><span class="linenos">171</span></a>        <span class="k">return</span> <span class="kc">None</span>
+</span><span id="model_gflops-158"><a href="#model_gflops-158"><span class="linenos">158</span></a><span class="sd">    Tries Ultralytics' own counter first; if that is unavailable (it returned nothing in</span>
+</span><span id="model_gflops-159"><a href="#model_gflops-159"><span class="linenos">159</span></a><span class="sd">    run 1), falls back to `porkinspect.performance.count_flops` on the underlying</span>
+</span><span id="model_gflops-160"><a href="#model_gflops-160"><span class="linenos">160</span></a><span class="sd">    PyTorch network, which counts Conv2d and Linear layers only.</span>
+</span><span id="model_gflops-161"><a href="#model_gflops-161"><span class="linenos">161</span></a>
+</span><span id="model_gflops-162"><a href="#model_gflops-162"><span class="linenos">162</span></a><span class="sd">    Parameters</span>
+</span><span id="model_gflops-163"><a href="#model_gflops-163"><span class="linenos">163</span></a><span class="sd">    ----------</span>
+</span><span id="model_gflops-164"><a href="#model_gflops-164"><span class="linenos">164</span></a><span class="sd">    model : ultralytics.YOLO</span>
+</span><span id="model_gflops-165"><a href="#model_gflops-165"><span class="linenos">165</span></a><span class="sd">        Detector.</span>
+</span><span id="model_gflops-166"><a href="#model_gflops-166"><span class="linenos">166</span></a><span class="sd">    imgsz : int</span>
+</span><span id="model_gflops-167"><a href="#model_gflops-167"><span class="linenos">167</span></a><span class="sd">        Square input size in pixels.</span>
+</span><span id="model_gflops-168"><a href="#model_gflops-168"><span class="linenos">168</span></a>
+</span><span id="model_gflops-169"><a href="#model_gflops-169"><span class="linenos">169</span></a><span class="sd">    Returns</span>
+</span><span id="model_gflops-170"><a href="#model_gflops-170"><span class="linenos">170</span></a><span class="sd">    -------</span>
+</span><span id="model_gflops-171"><a href="#model_gflops-171"><span class="linenos">171</span></a><span class="sd">    float or None</span>
+</span><span id="model_gflops-172"><a href="#model_gflops-172"><span class="linenos">172</span></a><span class="sd">        GFLOPs per image, or None if neither method works.</span>
+</span><span id="model_gflops-173"><a href="#model_gflops-173"><span class="linenos">173</span></a><span class="sd">    """</span>
+</span><span id="model_gflops-174"><a href="#model_gflops-174"><span class="linenos">174</span></a>    <span class="k">try</span><span class="p">:</span>
+</span><span id="model_gflops-175"><a href="#model_gflops-175"><span class="linenos">175</span></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">ultralytics.utils.torch_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_flops</span>
+</span><span id="model_gflops-176"><a href="#model_gflops-176"><span class="linenos">176</span></a>
+</span><span id="model_gflops-177"><a href="#model_gflops-177"><span class="linenos">177</span></a>        <span class="n">g</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">get_flops</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="n">imgsz</span><span class="p">))</span>
+</span><span id="model_gflops-178"><a href="#model_gflops-178"><span class="linenos">178</span></a>        <span class="k">if</span> <span class="n">g</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+</span><span id="model_gflops-179"><a href="#model_gflops-179"><span class="linenos">179</span></a>            <span class="k">return</span> <span class="n">g</span>
+</span><span id="model_gflops-180"><a href="#model_gflops-180"><span class="linenos">180</span></a>    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>  <span class="c1"># pragma: no cover - depends on ultralytics version</span>
+</span><span id="model_gflops-181"><a href="#model_gflops-181"><span class="linenos">181</span></a>        <span class="k">pass</span>
+</span><span id="model_gflops-182"><a href="#model_gflops-182"><span class="linenos">182</span></a>    <span class="k">try</span><span class="p">:</span>
+</span><span id="model_gflops-183"><a href="#model_gflops-183"><span class="linenos">183</span></a>        <span class="kn">import</span><span class="w"> </span><span class="nn">copy</span>
+</span><span id="model_gflops-184"><a href="#model_gflops-184"><span class="linenos">184</span></a>
+</span><span id="model_gflops-185"><a href="#model_gflops-185"><span class="linenos">185</span></a>        <span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+</span><span id="model_gflops-186"><a href="#model_gflops-186"><span class="linenos">186</span></a>
+</span><span id="model_gflops-187"><a href="#model_gflops-187"><span class="linenos">187</span></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">.performance</span><span class="w"> </span><span class="kn">import</span> <span class="n">count_flops</span>
+</span><span id="model_gflops-188"><a href="#model_gflops-188"><span class="linenos">188</span></a>
+</span><span id="model_gflops-189"><a href="#model_gflops-189"><span class="linenos">189</span></a>        <span class="n">net</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">model</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span>
+</span><span id="model_gflops-190"><a href="#model_gflops-190"><span class="linenos">190</span></a>        <span class="k">return</span> <span class="n">count_flops</span><span class="p">(</span><span class="n">net</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">imgsz</span><span class="p">,</span> <span class="n">imgsz</span><span class="p">))[</span><span class="s2">"flops"</span><span class="p">]</span> <span class="o">/</span> <span class="mf">1e9</span>
+</span><span id="model_gflops-191"><a href="#model_gflops-191"><span class="linenos">191</span></a>    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+</span><span id="model_gflops-192"><a href="#model_gflops-192"><span class="linenos">192</span></a>        <span class="k">return</span> <span class="kc">None</span>
 </span></pre></div>
 
 
-            <div class="docstring"><p>GFLOPs per image reported by Ultralytics (at 640 px), or None if unavailable.</p>
+            <div class="docstring"><p>GFLOPs for one image at <code>imgsz</code>.</p>
+
+<p>Tries Ultralytics' own counter first; if that is unavailable (it returned nothing in
+run 1), falls back to <code><a href="performance.html#count_flops">porkinspect.performance.count_flops</a></code> on the underlying
+PyTorch network, which counts Conv2d and Linear layers only.</p>
 
 <h6 id="parameters">Parameters</h6>
 
 <ul>
 <li><strong>model</strong> (ultralytics.YOLO):
 Detector.</li>
+<li><strong>imgsz</strong> (int):
+Square input size in pixels.</li>
 </ul>
 
 <h6 id="returns">Returns</h6>
 
 <ul>
-<li><strong>float or None</strong></li>
+<li><strong>float or None</strong>: GFLOPs per image, or None if neither method works.</li>
 </ul>
 </div>
 

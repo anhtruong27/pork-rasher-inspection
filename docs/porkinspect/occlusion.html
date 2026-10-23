@@ -146,7 +146,7 @@ for <code>unsealed</code>) or at irrelevant cues such as glare on the plastic fi
 </span><span id="L-75"><a href="#L-75"><span class="linenos"> 75</span></a>
 </span><span id="L-76"><a href="#L-76"><span class="linenos"> 76</span></a>
 </span><span id="L-77"><a href="#L-77"><span class="linenos"> 77</span></a><span class="k">def</span><span class="w"> </span><span class="nf">overlay</span><span class="p">(</span><span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">heatmap</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">,</span>
-</span><span id="L-78"><a href="#L-78"><span class="linenos"> 78</span></a>            <span class="n">title</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span><span class="p">,</span> <span class="n">cmap</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"jet"</span><span class="p">):</span>
+</span><span id="L-78"><a href="#L-78"><span class="linenos"> 78</span></a>            <span class="n">title</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span><span class="p">,</span> <span class="n">cmap</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"jet"</span><span class="p">,</span> <span class="n">vmax</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
 </span><span id="L-79"><a href="#L-79"><span class="linenos"> 79</span></a><span class="w">    </span><span class="sd">"""Plot a heatmap over an image with a labelled colour bar.</span>
 </span><span id="L-80"><a href="#L-80"><span class="linenos"> 80</span></a>
 </span><span id="L-81"><a href="#L-81"><span class="linenos"> 81</span></a><span class="sd">    Parameters</span>
@@ -163,21 +163,31 @@ for <code>unsealed</code>) or at irrelevant cues such as glare on the plastic fi
 </span><span id="L-92"><a href="#L-92"><span class="linenos"> 92</span></a><span class="sd">        Axes title.</span>
 </span><span id="L-93"><a href="#L-93"><span class="linenos"> 93</span></a><span class="sd">    cmap : str</span>
 </span><span id="L-94"><a href="#L-94"><span class="linenos"> 94</span></a><span class="sd">        Matplotlib colour map.</span>
-</span><span id="L-95"><a href="#L-95"><span class="linenos"> 95</span></a>
-</span><span id="L-96"><a href="#L-96"><span class="linenos"> 96</span></a><span class="sd">    Returns</span>
-</span><span id="L-97"><a href="#L-97"><span class="linenos"> 97</span></a><span class="sd">    -------</span>
-</span><span id="L-98"><a href="#L-98"><span class="linenos"> 98</span></a><span class="sd">    matplotlib.axes.Axes</span>
-</span><span id="L-99"><a href="#L-99"><span class="linenos"> 99</span></a><span class="sd">    """</span>
-</span><span id="L-100"><a href="#L-100"><span class="linenos">100</span></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+</span><span id="L-95"><a href="#L-95"><span class="linenos"> 95</span></a><span class="sd">    vmax : float, optional</span>
+</span><span id="L-96"><a href="#L-96"><span class="linenos"> 96</span></a><span class="sd">        Top of the colour scale. Default: the larger of the map's maximum and 0.05.</span>
+</span><span id="L-97"><a href="#L-97"><span class="linenos"> 97</span></a>
+</span><span id="L-98"><a href="#L-98"><span class="linenos"> 98</span></a><span class="sd">    Returns</span>
+</span><span id="L-99"><a href="#L-99"><span class="linenos"> 99</span></a><span class="sd">    -------</span>
+</span><span id="L-100"><a href="#L-100"><span class="linenos">100</span></a><span class="sd">    matplotlib.axes.Axes</span>
 </span><span id="L-101"><a href="#L-101"><span class="linenos">101</span></a>
-</span><span id="L-102"><a href="#L-102"><span class="linenos">102</span></a>    <span class="k">if</span> <span class="n">ax</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="L-103"><a href="#L-103"><span class="linenos">103</span></a>        <span class="n">_</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mf">4.5</span><span class="p">))</span>
-</span><span id="L-104"><a href="#L-104"><span class="linenos">104</span></a>    <span class="n">ax</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">image</span><span class="p">)</span>
-</span><span id="L-105"><a href="#L-105"><span class="linenos">105</span></a>    <span class="n">im</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">heatmap</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="n">alpha</span><span class="p">)</span>
-</span><span id="L-106"><a href="#L-106"><span class="linenos">106</span></a>    <span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">fraction</span><span class="o">=</span><span class="mf">0.035</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"score drop (high = important)"</span><span class="p">)</span>
-</span><span id="L-107"><a href="#L-107"><span class="linenos">107</span></a>    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="n">title</span><span class="p">)</span>
-</span><span id="L-108"><a href="#L-108"><span class="linenos">108</span></a>    <span class="n">ax</span><span class="o">.</span><span class="n">axis</span><span class="p">(</span><span class="s2">"off"</span><span class="p">)</span>
-</span><span id="L-109"><a href="#L-109"><span class="linenos">109</span></a>    <span class="k">return</span> <span class="n">ax</span>
+</span><span id="L-102"><a href="#L-102"><span class="linenos">102</span></a><span class="sd">    Notes</span>
+</span><span id="L-103"><a href="#L-103"><span class="linenos">103</span></a><span class="sd">    -----</span>
+</span><span id="L-104"><a href="#L-104"><span class="linenos">104</span></a><span class="sd">    The colour scale always starts at 0 (no change in score). Negative values (covering a</span>
+</span><span id="L-105"><a href="#L-105"><span class="linenos">105</span></a><span class="sd">    patch slightly *raised* the score) are shown as 0. Without this, a map whose values</span>
+</span><span id="L-106"><a href="#L-106"><span class="linenos">106</span></a><span class="sd">    are all tiny negatives is stretched over the full colour range and looks entirely</span>
+</span><span id="L-107"><a href="#L-107"><span class="linenos">107</span></a><span class="sd">    "important" (the all-red panels in run 1).</span>
+</span><span id="L-108"><a href="#L-108"><span class="linenos">108</span></a><span class="sd">    """</span>
+</span><span id="L-109"><a href="#L-109"><span class="linenos">109</span></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+</span><span id="L-110"><a href="#L-110"><span class="linenos">110</span></a>
+</span><span id="L-111"><a href="#L-111"><span class="linenos">111</span></a>    <span class="k">if</span> <span class="n">ax</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="L-112"><a href="#L-112"><span class="linenos">112</span></a>        <span class="n">_</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mf">4.5</span><span class="p">))</span>
+</span><span id="L-113"><a href="#L-113"><span class="linenos">113</span></a>    <span class="n">ax</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">image</span><span class="p">)</span>
+</span><span id="L-114"><a href="#L-114"><span class="linenos">114</span></a>    <span class="n">top</span> <span class="o">=</span> <span class="n">vmax</span> <span class="k">if</span> <span class="n">vmax</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">max</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">heatmap</span><span class="p">)),</span> <span class="mf">0.05</span><span class="p">)</span>
+</span><span id="L-115"><a href="#L-115"><span class="linenos">115</span></a>    <span class="n">im</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">heatmap</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span> <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="n">alpha</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="n">top</span><span class="p">)</span>
+</span><span id="L-116"><a href="#L-116"><span class="linenos">116</span></a>    <span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">fraction</span><span class="o">=</span><span class="mf">0.035</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"score drop (high = important)"</span><span class="p">)</span>
+</span><span id="L-117"><a href="#L-117"><span class="linenos">117</span></a>    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="n">title</span><span class="p">)</span>
+</span><span id="L-118"><a href="#L-118"><span class="linenos">118</span></a>    <span class="n">ax</span><span class="o">.</span><span class="n">axis</span><span class="p">(</span><span class="s2">"off"</span><span class="p">)</span>
+</span><span id="L-119"><a href="#L-119"><span class="linenos">119</span></a>    <span class="k">return</span> <span class="n">ax</span>
 </span></pre></div>
 
 
@@ -292,14 +302,14 @@ Score of the un-occluded image.</li>
 <div class="attr function">
             
         <span class="def">def</span>
-        <span class="name">overlay</span><span class="signature pdoc-code multiline">(<span class="param">	<span class="n">image</span><span class="p">:</span> <span class="n">numpy</span><span class="o">.</span><span class="n">ndarray</span>,</span><span class="param">	<span class="n">heatmap</span><span class="p">:</span> <span class="n">numpy</span><span class="o">.</span><span class="n">ndarray</span>,</span><span class="param">	<span class="n">ax</span><span class="o">=</span><span class="kc">None</span>,</span><span class="param">	<span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span>,</span><span class="param">	<span class="n">title</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">''</span>,</span><span class="param">	<span class="n">cmap</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'jet'</span></span><span class="return-annotation">):</span></span>
+        <span class="name">overlay</span><span class="signature pdoc-code multiline">(<span class="param">	<span class="n">image</span><span class="p">:</span> <span class="n">numpy</span><span class="o">.</span><span class="n">ndarray</span>,</span><span class="param">	<span class="n">heatmap</span><span class="p">:</span> <span class="n">numpy</span><span class="o">.</span><span class="n">ndarray</span>,</span><span class="param">	<span class="n">ax</span><span class="o">=</span><span class="kc">None</span>,</span><span class="param">	<span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span>,</span><span class="param">	<span class="n">title</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">''</span>,</span><span class="param">	<span class="n">cmap</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'jet'</span>,</span><span class="param">	<span class="n">vmax</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span></span><span class="return-annotation">):</span></span>
 
                 <label class="view-source-button" for="overlay-view-source"><span>View Source</span></label>
 
     </div>
     <a class="headerlink" href="#overlay"></a>
             <div class="pdoc-code codehilite"><pre><span></span><span id="overlay-78"><a href="#overlay-78"><span class="linenos"> 78</span></a><span class="k">def</span><span class="w"> </span><span class="nf">overlay</span><span class="p">(</span><span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">heatmap</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">,</span>
-</span><span id="overlay-79"><a href="#overlay-79"><span class="linenos"> 79</span></a>            <span class="n">title</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span><span class="p">,</span> <span class="n">cmap</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"jet"</span><span class="p">):</span>
+</span><span id="overlay-79"><a href="#overlay-79"><span class="linenos"> 79</span></a>            <span class="n">title</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span><span class="p">,</span> <span class="n">cmap</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"jet"</span><span class="p">,</span> <span class="n">vmax</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
 </span><span id="overlay-80"><a href="#overlay-80"><span class="linenos"> 80</span></a><span class="w">    </span><span class="sd">"""Plot a heatmap over an image with a labelled colour bar.</span>
 </span><span id="overlay-81"><a href="#overlay-81"><span class="linenos"> 81</span></a>
 </span><span id="overlay-82"><a href="#overlay-82"><span class="linenos"> 82</span></a><span class="sd">    Parameters</span>
@@ -316,21 +326,31 @@ Score of the un-occluded image.</li>
 </span><span id="overlay-93"><a href="#overlay-93"><span class="linenos"> 93</span></a><span class="sd">        Axes title.</span>
 </span><span id="overlay-94"><a href="#overlay-94"><span class="linenos"> 94</span></a><span class="sd">    cmap : str</span>
 </span><span id="overlay-95"><a href="#overlay-95"><span class="linenos"> 95</span></a><span class="sd">        Matplotlib colour map.</span>
-</span><span id="overlay-96"><a href="#overlay-96"><span class="linenos"> 96</span></a>
-</span><span id="overlay-97"><a href="#overlay-97"><span class="linenos"> 97</span></a><span class="sd">    Returns</span>
-</span><span id="overlay-98"><a href="#overlay-98"><span class="linenos"> 98</span></a><span class="sd">    -------</span>
-</span><span id="overlay-99"><a href="#overlay-99"><span class="linenos"> 99</span></a><span class="sd">    matplotlib.axes.Axes</span>
-</span><span id="overlay-100"><a href="#overlay-100"><span class="linenos">100</span></a><span class="sd">    """</span>
-</span><span id="overlay-101"><a href="#overlay-101"><span class="linenos">101</span></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+</span><span id="overlay-96"><a href="#overlay-96"><span class="linenos"> 96</span></a><span class="sd">    vmax : float, optional</span>
+</span><span id="overlay-97"><a href="#overlay-97"><span class="linenos"> 97</span></a><span class="sd">        Top of the colour scale. Default: the larger of the map's maximum and 0.05.</span>
+</span><span id="overlay-98"><a href="#overlay-98"><span class="linenos"> 98</span></a>
+</span><span id="overlay-99"><a href="#overlay-99"><span class="linenos"> 99</span></a><span class="sd">    Returns</span>
+</span><span id="overlay-100"><a href="#overlay-100"><span class="linenos">100</span></a><span class="sd">    -------</span>
+</span><span id="overlay-101"><a href="#overlay-101"><span class="linenos">101</span></a><span class="sd">    matplotlib.axes.Axes</span>
 </span><span id="overlay-102"><a href="#overlay-102"><span class="linenos">102</span></a>
-</span><span id="overlay-103"><a href="#overlay-103"><span class="linenos">103</span></a>    <span class="k">if</span> <span class="n">ax</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="overlay-104"><a href="#overlay-104"><span class="linenos">104</span></a>        <span class="n">_</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mf">4.5</span><span class="p">))</span>
-</span><span id="overlay-105"><a href="#overlay-105"><span class="linenos">105</span></a>    <span class="n">ax</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">image</span><span class="p">)</span>
-</span><span id="overlay-106"><a href="#overlay-106"><span class="linenos">106</span></a>    <span class="n">im</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">heatmap</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="n">alpha</span><span class="p">)</span>
-</span><span id="overlay-107"><a href="#overlay-107"><span class="linenos">107</span></a>    <span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">fraction</span><span class="o">=</span><span class="mf">0.035</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"score drop (high = important)"</span><span class="p">)</span>
-</span><span id="overlay-108"><a href="#overlay-108"><span class="linenos">108</span></a>    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="n">title</span><span class="p">)</span>
-</span><span id="overlay-109"><a href="#overlay-109"><span class="linenos">109</span></a>    <span class="n">ax</span><span class="o">.</span><span class="n">axis</span><span class="p">(</span><span class="s2">"off"</span><span class="p">)</span>
-</span><span id="overlay-110"><a href="#overlay-110"><span class="linenos">110</span></a>    <span class="k">return</span> <span class="n">ax</span>
+</span><span id="overlay-103"><a href="#overlay-103"><span class="linenos">103</span></a><span class="sd">    Notes</span>
+</span><span id="overlay-104"><a href="#overlay-104"><span class="linenos">104</span></a><span class="sd">    -----</span>
+</span><span id="overlay-105"><a href="#overlay-105"><span class="linenos">105</span></a><span class="sd">    The colour scale always starts at 0 (no change in score). Negative values (covering a</span>
+</span><span id="overlay-106"><a href="#overlay-106"><span class="linenos">106</span></a><span class="sd">    patch slightly *raised* the score) are shown as 0. Without this, a map whose values</span>
+</span><span id="overlay-107"><a href="#overlay-107"><span class="linenos">107</span></a><span class="sd">    are all tiny negatives is stretched over the full colour range and looks entirely</span>
+</span><span id="overlay-108"><a href="#overlay-108"><span class="linenos">108</span></a><span class="sd">    "important" (the all-red panels in run 1).</span>
+</span><span id="overlay-109"><a href="#overlay-109"><span class="linenos">109</span></a><span class="sd">    """</span>
+</span><span id="overlay-110"><a href="#overlay-110"><span class="linenos">110</span></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+</span><span id="overlay-111"><a href="#overlay-111"><span class="linenos">111</span></a>
+</span><span id="overlay-112"><a href="#overlay-112"><span class="linenos">112</span></a>    <span class="k">if</span> <span class="n">ax</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="overlay-113"><a href="#overlay-113"><span class="linenos">113</span></a>        <span class="n">_</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mf">4.5</span><span class="p">))</span>
+</span><span id="overlay-114"><a href="#overlay-114"><span class="linenos">114</span></a>    <span class="n">ax</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">image</span><span class="p">)</span>
+</span><span id="overlay-115"><a href="#overlay-115"><span class="linenos">115</span></a>    <span class="n">top</span> <span class="o">=</span> <span class="n">vmax</span> <span class="k">if</span> <span class="n">vmax</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">max</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">heatmap</span><span class="p">)),</span> <span class="mf">0.05</span><span class="p">)</span>
+</span><span id="overlay-116"><a href="#overlay-116"><span class="linenos">116</span></a>    <span class="n">im</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">heatmap</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span> <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="n">alpha</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="n">top</span><span class="p">)</span>
+</span><span id="overlay-117"><a href="#overlay-117"><span class="linenos">117</span></a>    <span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">fraction</span><span class="o">=</span><span class="mf">0.035</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"score drop (high = important)"</span><span class="p">)</span>
+</span><span id="overlay-118"><a href="#overlay-118"><span class="linenos">118</span></a>    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="n">title</span><span class="p">)</span>
+</span><span id="overlay-119"><a href="#overlay-119"><span class="linenos">119</span></a>    <span class="n">ax</span><span class="o">.</span><span class="n">axis</span><span class="p">(</span><span class="s2">"off"</span><span class="p">)</span>
+</span><span id="overlay-120"><a href="#overlay-120"><span class="linenos">120</span></a>    <span class="k">return</span> <span class="n">ax</span>
 </span></pre></div>
 
 
@@ -351,6 +371,8 @@ Heatmap opacity.</li>
 Axes title.</li>
 <li><strong>cmap</strong> (str):
 Matplotlib colour map.</li>
+<li><strong>vmax</strong> (float, optional):
+Top of the colour scale. Default: the larger of the map's maximum and 0.05.</li>
 </ul>
 
 <h6 id="returns">Returns</h6>
@@ -358,6 +380,13 @@ Matplotlib colour map.</li>
 <ul>
 <li><strong>matplotlib.axes.Axes</strong></li>
 </ul>
+
+<h6 id="notes">Notes</h6>
+
+<p>The colour scale always starts at 0 (no change in score). Negative values (covering a
+patch slightly <em>raised</em> the score) are shown as 0. Without this, a map whose values
+are all tiny negatives is stretched over the full colour range and looks entirely
+"important" (the all-red panels in run 1).</p>
 </div>
 
 

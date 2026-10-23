@@ -420,3 +420,210 @@ def near_duplicate_leaks(train: Sequence[ImageRecord], held_out: Sequence[ImageR
         if nearest <= window:
             leaked.append(i)
     return leaked
+
+
+def unique_sources(records: Sequence[ImageRecord]) -> Dict[str, List[ImageRecord]]:
+    """Group records by original photo (augmented copies share a source).
+
+    Parameters
+    ----------
+    records : sequence of ImageRecord
+
+    Returns
+    -------
+    dict
+        ``{source_id: [records]}``, records sorted by file name.
+    """
+    groups: Dict[str, List[ImageRecord]] = defaultdict(list)
+    for r in records:
+        groups[r.source_id].append(r)
+    return {k: sorted(v, key=lambda r: r.image_path.name) for k, v in groups.items()}
+
+
+def frame_gaps(records: Sequence[ImageRecord]) -> np.ndarray:
+    """Differences between consecutive frame numbers of the original photos.
+
+    Used to choose the segment gap ``G`` for `segment_split`: small gaps are frames of
+    one continuous shot, large gaps are breaks between shots.
+
+    Parameters
+    ----------
+    records : sequence of ImageRecord
+        Records from all splits.
+
+    Returns
+    -------
+    numpy.ndarray
+        Gaps (int) between neighbouring frame numbers within each sequence prefix.
+    """
+    by_prefix: Dict[str, set] = defaultdict(set)
+    for src in unique_sources(records):
+        prefix, num = frame_key(src)
+        if num is not None:
+            by_prefix[prefix].add(num)
+    gaps = [np.diff(sorted(v)) for v in by_prefix.values() if len(v) > 1]
+    return np.concatenate(gaps).astype(int) if gaps else np.zeros(0, dtype=int)
+
+
+def assign_segments(records: Sequence[ImageRecord], gap: int) -> Dict[str, str]:
+    """Label every original photo with a segment id.
+
+    Photos of the same prefix are sorted by frame number; a new segment starts wherever
+    the jump to the next frame number is larger than ``gap``. Photos without a frame
+    number form their own one-photo segment.
+
+    Parameters
+    ----------
+    records : sequence of ImageRecord
+    gap : int
+        Largest frame jump that still counts as the same segment (``G``).
+
+    Returns
+    -------
+    dict
+        ``{source_id: segment_id}``.
+
+    Raises
+    ------
+    ValueError
+        If ``gap`` is negative.
+    """
+    if gap < 0:
+        raise ValueError("gap must be >= 0")
+    by_prefix: Dict[str, List[Tuple[int, str]]] = defaultdict(list)
+    seg: Dict[str, str] = {}
+    for src in unique_sources(records):
+        prefix, num = frame_key(src)
+        if num is None:
+            seg[src] = f"single:{src}"
+        else:
+            by_prefix[prefix].append((num, src))
+    for prefix, items in by_prefix.items():
+        items.sort()
+        k, prev = 0, None
+        for num, src in items:
+            if prev is not None and num - prev > gap:
+                k += 1
+            seg[src] = f"{prefix}#{k}"
+            prev = num
+    return seg
+
+
+def segment_split(records: Sequence[ImageRecord], gap: int, test_frac: float = 0.15,
+                  valid_frac: float = 0.10, n_classes: int = 5,
+                  must_have: Sequence[int] = (), min_pass: int = 1,
+                  seed: int = 0, max_tries: int = 200) -> Dict[str, List[ImageRecord]]:
+    """Leak-free split: whole segments go to train, valid or test.
+
+    Every augmented copy of a photo follows its photo, and every photo follows its
+    segment, so no test photo has a training photo within ``gap`` frames of it.
+    Valid and test keep ONE copy per original photo (augmentation is for training only).
+
+    Parameters
+    ----------
+    records : sequence of ImageRecord
+        All records from the original export (any split).
+    gap : int
+        Segment gap ``G`` (see `assign_segments`).
+    test_frac, valid_frac : float
+        Target share of ORIGINAL photos in test and valid.
+    n_classes : int
+        Number of classes.
+    must_have : sequence of int
+        Class ids that must appear in BOTH valid and test (e.g. the two main classes).
+    min_pass : int
+        Minimum number of defect-free trays in both valid and test.
+    seed : int
+        Random seed; the first seed (seed, seed+1, ...) meeting the requirements is used.
+    max_tries : int
+        Number of seeds to try.
+
+    Returns
+    -------
+    dict
+        ``{"train": [...], "valid": [...], "test": [...], "seed": int}`` (records keep
+        their file paths; their ``split`` attribute is updated).
+
+    Raises
+    ------
+    RuntimeError
+        If no seed meets the requirements (try a smaller ``gap`` or other fractions).
+    """
+    groups = unique_sources(records)
+    seg_of = assign_segments(records, gap)
+    segments: Dict[str, List[str]] = defaultdict(list)
+    for src, s in seg_of.items():
+        segments[s].append(src)
+    names = sorted(segments)
+    n_orig = len(groups)
+
+    def ok(srcs: List[str]) -> bool:
+        pres = np.zeros(n_classes)
+        n_pass = 0
+        for src in srcs:
+            boxes = groups[src][0].boxes
+            pres += presence_vector(boxes, n_classes)
+            n_pass += int(len(boxes) == 0)
+        return n_pass >= min_pass and all(pres[c] > 0 for c in must_have)
+
+    for k in range(max_tries):
+        rng = np.random.default_rng(seed + k)
+        order = [names[i] for i in rng.permutation(len(names))]
+        test, valid, train = [], [], []
+        for s in order:
+            if len(test) < test_frac * n_orig:
+                test += segments[s]
+            elif len(valid) < valid_frac * n_orig:
+                valid += segments[s]
+            else:
+                train += segments[s]
+        if ok(test) and ok(valid):
+            out: Dict[str, object] = {"seed": seed + k}
+            for split, srcs in (("train", train), ("valid", valid), ("test", test)):
+                recs = []
+                for src in sorted(srcs):
+                    copies = groups[src] if split == "train" else groups[src][:1]
+                    recs += [ImageRecord(r.image_path, r.boxes, split) for r in copies]
+                out[split] = recs
+            return out  # type: ignore[return-value]
+    raise RuntimeError("no split met the requirements; try a smaller gap")
+
+
+def write_yolo_split(split: Dict[str, List[ImageRecord]], out_root: Path,
+                     class_names: Sequence[str]) -> Path:
+    """Write a split as a YOLO dataset folder (copied images + label files).
+
+    Parameters
+    ----------
+    split : dict
+        Output of `segment_split`.
+    out_root : pathlib.Path
+        Folder to create.
+    class_names : sequence of str
+        Names in class-id order.
+
+    Returns
+    -------
+    pathlib.Path
+        Path of the new ``data.yaml``.
+    """
+    import shutil
+
+    import yaml
+
+    out_root = Path(out_root).resolve()
+    for name in ("train", "valid", "test"):
+        img_dir, lbl_dir = out_root / name / "images", out_root / name / "labels"
+        img_dir.mkdir(parents=True, exist_ok=True)
+        lbl_dir.mkdir(parents=True, exist_ok=True)
+        for r in split[name]:
+            dst = img_dir / r.image_path.name
+            if not dst.exists():
+                shutil.copy2(r.image_path, dst)
+            lines = [f"{int(b[0])} {b[1]:.6f} {b[2]:.6f} {b[3]:.6f} {b[4]:.6f}" for b in r.boxes]
+            (lbl_dir / (r.image_path.stem + ".txt")).write_text("\n".join(lines) + ("\n" if lines else ""))
+    cfg = {"path": str(out_root), "train": "train/images", "val": "valid/images",
+           "test": "test/images", "nc": len(class_names), "names": list(class_names)}
+    yaml_path = out_root / "data.yaml"
+    yaml_path.write_text(yaml.safe_dump(cfg))
+    return yaml_path

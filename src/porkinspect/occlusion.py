@@ -75,7 +75,7 @@ def occlusion_map(score_fn: Callable[[np.ndarray], float], image: np.ndarray,
 
 
 def overlay(image: np.ndarray, heatmap: np.ndarray, ax=None, alpha: float = 0.5,
-            title: str = "", cmap: str = "jet"):
+            title: str = "", cmap: str = "jet", vmax: float = None):
     """Plot a heatmap over an image with a labelled colour bar.
 
     Parameters
@@ -92,17 +92,27 @@ def overlay(image: np.ndarray, heatmap: np.ndarray, ax=None, alpha: float = 0.5,
         Axes title.
     cmap : str
         Matplotlib colour map.
+    vmax : float, optional
+        Top of the colour scale. Default: the larger of the map's maximum and 0.05.
 
     Returns
     -------
     matplotlib.axes.Axes
+
+    Notes
+    -----
+    The colour scale always starts at 0 (no change in score). Negative values (covering a
+    patch slightly *raised* the score) are shown as 0. Without this, a map whose values
+    are all tiny negatives is stretched over the full colour range and looks entirely
+    "important" (the all-red panels in run 1).
     """
     import matplotlib.pyplot as plt
 
     if ax is None:
         _, ax = plt.subplots(figsize=(6, 4.5))
     ax.imshow(image)
-    im = ax.imshow(heatmap, cmap=cmap, alpha=alpha)
+    top = vmax if vmax is not None else max(float(np.max(heatmap)), 0.05)
+    im = ax.imshow(np.clip(heatmap, 0, None), cmap=cmap, alpha=alpha, vmin=0.0, vmax=top)
     plt.colorbar(im, ax=ax, fraction=0.035, label="score drop (high = important)")
     ax.set_title(title)
     ax.axis("off")

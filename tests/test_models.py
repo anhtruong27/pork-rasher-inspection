@@ -87,3 +87,13 @@ def test_occlusion_invalid_args():
         occlusion_map(lambda im: 0.0, np.zeros((50, 50, 3), np.uint8), patch=0)
     with pytest.raises(ValueError):
         occlusion_map(lambda im: 0.0, np.zeros((50, 50, 3), np.uint8), patch=60)
+
+
+def test_overlay_colour_scale_starts_at_zero():
+    import matplotlib
+    matplotlib.use("Agg")
+    from porkinspect.occlusion import overlay
+    img = np.zeros((60, 80, 3), np.uint8)
+    ax = overlay(img, np.full((60, 80), -0.01))        # all tiny negatives (run-1 bug case)
+    lo, hi = ax.images[-1].get_clim()
+    assert lo == 0.0 and hi == pytest.approx(0.05)

@@ -72,3 +72,45 @@ def test_bootstrap_ci_contains_estimate_and_shrinks_with_n():
 def test_bootstrap_ci_rejects_empty():
     with pytest.raises(ValueError):
         bootstrap_ci(np.zeros((0, 2)), np.zeros((0, 2)), lambda t, p: 0.0)
+
+
+from porkinspect.metrics import (always_fail_predictions, cost_threshold, paired_bootstrap,
+                                 tray_cost)
+
+
+def test_always_fail_rule():
+    y = np.array([[1, 0], [0, 0], [0, 1]])
+    p = always_fail_predictions(y, 0)
+    assert p.tolist() == [[True, False]] * 3
+    r = multilabel_report(y, p, ["a", "b"])
+    assert r["tray"]["balanced_accuracy"] == pytest.approx(0.5)
+
+
+def test_tray_cost_hand_example():
+    y = np.array([[1], [1], [0], [0]])
+    p = np.array([[0], [1], [1], [0]])          # 1 miss, 1 waste
+    assert tray_cost(y, p, miss_cost=10, waste_cost=1) == 11
+    with pytest.raises(ValueError):
+        tray_cost(y, p, -1, 1)
+
+
+def test_cost_threshold_moves_with_cost_ratio():
+    y = np.array([[1], [1], [0], [0]])
+    s = np.array([[0.9], [0.3], [0.4], [0.1]])
+    th = [0.2, 0.35, 0.5]
+    # misses expensive -> low threshold (catch tray with 0.3, waste 0.4 tray)
+    assert cost_threshold(y, s, th, miss_cost=10, waste_cost=1)["threshold"] == 0.2
+    # waste expensive -> higher threshold
+    assert cost_threshold(y, s, th, miss_cost=1, waste_cost=10)["threshold"] == 0.5
+
+
+def test_paired_bootstrap_detects_clear_difference():
+    rng = np.random.default_rng(0)
+    y = rng.integers(0, 2, (100, 1))
+    good = y.copy()
+    bad = 1 - y
+    f = lambda t, p: float(np.mean(t == p))
+    r = paired_bootstrap(y, good, bad, f, n_boot=300)
+    assert r["diff"] == pytest.approx(1.0) and r["low"] > 0 and r["p_a_not_better"] == 0
+    with pytest.raises(ValueError):
+        paired_bootstrap(y, good, bad[:5], f)

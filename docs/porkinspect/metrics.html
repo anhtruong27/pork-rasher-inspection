@@ -48,6 +48,18 @@
             <li>
                     <a class="function" href="#bootstrap_ci">bootstrap_ci</a>
             </li>
+            <li>
+                    <a class="function" href="#paired_bootstrap">paired_bootstrap</a>
+            </li>
+            <li>
+                    <a class="function" href="#always_fail_predictions">always_fail_predictions</a>
+            </li>
+            <li>
+                    <a class="function" href="#tray_cost">tray_cost</a>
+            </li>
+            <li>
+                    <a class="function" href="#cost_threshold">cost_threshold</a>
+            </li>
     </ul>
 
 
@@ -320,6 +332,126 @@ set contains defect-free trays</em>.</li>
 </span><span id="L-233"><a href="#L-233"><span class="linenos">233</span></a>            <span class="s2">"low"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nanpercentile</span><span class="p">(</span><span class="n">vals</span><span class="p">,</span> <span class="mi">100</span> <span class="o">*</span> <span class="n">alpha</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)),</span>
 </span><span id="L-234"><a href="#L-234"><span class="linenos">234</span></a>            <span class="s2">"high"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nanpercentile</span><span class="p">(</span><span class="n">vals</span><span class="p">,</span> <span class="mi">100</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">alpha</span> <span class="o">/</span> <span class="mi">2</span><span class="p">))),</span>
 </span><span id="L-235"><a href="#L-235"><span class="linenos">235</span></a>            <span class="s2">"std"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nanstd</span><span class="p">(</span><span class="n">vals</span><span class="p">))}</span>
+</span><span id="L-236"><a href="#L-236"><span class="linenos">236</span></a>
+</span><span id="L-237"><a href="#L-237"><span class="linenos">237</span></a>
+</span><span id="L-238"><a href="#L-238"><span class="linenos">238</span></a><span class="k">def</span><span class="w"> </span><span class="nf">paired_bootstrap</span><span class="p">(</span><span class="n">y_true</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">pred_a</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">pred_b</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">metric</span><span class="p">,</span>
+</span><span id="L-239"><a href="#L-239"><span class="linenos">239</span></a>                     <span class="n">n_boot</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2000</span><span class="p">,</span> <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+</span><span id="L-240"><a href="#L-240"><span class="linenos">240</span></a><span class="w">    </span><span class="sd">"""Bootstrap confidence interval for the DIFFERENCE between two models.</span>
+</span><span id="L-241"><a href="#L-241"><span class="linenos">241</span></a>
+</span><span id="L-242"><a href="#L-242"><span class="linenos">242</span></a><span class="sd">    Both models are scored on the *same* resampled trays each time, so tray-to-tray</span>
+</span><span id="L-243"><a href="#L-243"><span class="linenos">243</span></a><span class="sd">    difficulty cancels out. If the interval for ``metric(a) - metric(b)`` excludes 0,</span>
+</span><span id="L-244"><a href="#L-244"><span class="linenos">244</span></a><span class="sd">    the test set supports a real difference.</span>
+</span><span id="L-245"><a href="#L-245"><span class="linenos">245</span></a>
+</span><span id="L-246"><a href="#L-246"><span class="linenos">246</span></a><span class="sd">    Parameters</span>
+</span><span id="L-247"><a href="#L-247"><span class="linenos">247</span></a><span class="sd">    ----------</span>
+</span><span id="L-248"><a href="#L-248"><span class="linenos">248</span></a><span class="sd">    y_true : numpy.ndarray</span>
+</span><span id="L-249"><a href="#L-249"><span class="linenos">249</span></a><span class="sd">        Shape (n_images, n_classes).</span>
+</span><span id="L-250"><a href="#L-250"><span class="linenos">250</span></a><span class="sd">    pred_a, pred_b : numpy.ndarray</span>
+</span><span id="L-251"><a href="#L-251"><span class="linenos">251</span></a><span class="sd">        Predictions of model A and model B, same shape as ``y_true``.</span>
+</span><span id="L-252"><a href="#L-252"><span class="linenos">252</span></a><span class="sd">    metric : callable</span>
+</span><span id="L-253"><a href="#L-253"><span class="linenos">253</span></a><span class="sd">        ``metric(y_true, y_pred) -&gt; float``.</span>
+</span><span id="L-254"><a href="#L-254"><span class="linenos">254</span></a><span class="sd">    n_boot, alpha, seed</span>
+</span><span id="L-255"><a href="#L-255"><span class="linenos">255</span></a><span class="sd">        As in `bootstrap_ci`.</span>
+</span><span id="L-256"><a href="#L-256"><span class="linenos">256</span></a>
+</span><span id="L-257"><a href="#L-257"><span class="linenos">257</span></a><span class="sd">    Returns</span>
+</span><span id="L-258"><a href="#L-258"><span class="linenos">258</span></a><span class="sd">    -------</span>
+</span><span id="L-259"><a href="#L-259"><span class="linenos">259</span></a><span class="sd">    dict</span>
+</span><span id="L-260"><a href="#L-260"><span class="linenos">260</span></a><span class="sd">        ``diff`` (on the full set), ``low``, ``high``, ``p_a_not_better`` (share of</span>
+</span><span id="L-261"><a href="#L-261"><span class="linenos">261</span></a><span class="sd">        resamples where A did not beat B).</span>
+</span><span id="L-262"><a href="#L-262"><span class="linenos">262</span></a><span class="sd">    """</span>
+</span><span id="L-263"><a href="#L-263"><span class="linenos">263</span></a>    <span class="n">t</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y_true</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">pred_a</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">pred_b</span><span class="p">)</span>
+</span><span id="L-264"><a href="#L-264"><span class="linenos">264</span></a>    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="p">))</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+</span><span id="L-265"><a href="#L-265"><span class="linenos">265</span></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"inputs must be non-empty and the same length"</span><span class="p">)</span>
+</span><span id="L-266"><a href="#L-266"><span class="linenos">266</span></a>    <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+</span><span id="L-267"><a href="#L-267"><span class="linenos">267</span></a>    <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+</span><span id="L-268"><a href="#L-268"><span class="linenos">268</span></a>    <span class="n">d</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">n_boot</span><span class="p">)</span>
+</span><span id="L-269"><a href="#L-269"><span class="linenos">269</span></a>    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_boot</span><span class="p">):</span>
+</span><span id="L-270"><a href="#L-270"><span class="linenos">270</span></a>        <span class="n">idx</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+</span><span id="L-271"><a href="#L-271"><span class="linenos">271</span></a>        <span class="n">d</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">metric</span><span class="p">(</span><span class="n">t</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="n">a</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span> <span class="o">-</span> <span class="n">metric</span><span class="p">(</span><span class="n">t</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="n">b</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span>
+</span><span id="L-272"><a href="#L-272"><span class="linenos">272</span></a>    <span class="k">return</span> <span class="p">{</span><span class="s2">"diff"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">metric</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">a</span><span class="p">)</span> <span class="o">-</span> <span class="n">metric</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">b</span><span class="p">)),</span>
+</span><span id="L-273"><a href="#L-273"><span class="linenos">273</span></a>            <span class="s2">"low"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nanpercentile</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="mi">100</span> <span class="o">*</span> <span class="n">alpha</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)),</span>
+</span><span id="L-274"><a href="#L-274"><span class="linenos">274</span></a>            <span class="s2">"high"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nanpercentile</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="mi">100</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">alpha</span> <span class="o">/</span> <span class="mi">2</span><span class="p">))),</span>
+</span><span id="L-275"><a href="#L-275"><span class="linenos">275</span></a>            <span class="s2">"p_a_not_better"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">d</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">))}</span>
+</span><span id="L-276"><a href="#L-276"><span class="linenos">276</span></a>
+</span><span id="L-277"><a href="#L-277"><span class="linenos">277</span></a>
+</span><span id="L-278"><a href="#L-278"><span class="linenos">278</span></a><span class="k">def</span><span class="w"> </span><span class="nf">always_fail_predictions</span><span class="p">(</span><span class="n">y_true</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">class_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+</span><span id="L-279"><a href="#L-279"><span class="linenos">279</span></a><span class="w">    </span><span class="sd">"""Predictions of the trivial rule "every tray has defect ``class_index``".</span>
+</span><span id="L-280"><a href="#L-280"><span class="linenos">280</span></a>
+</span><span id="L-281"><a href="#L-281"><span class="linenos">281</span></a><span class="sd">    A model that does not beat this rule on balanced accuracy has learned nothing useful</span>
+</span><span id="L-282"><a href="#L-282"><span class="linenos">282</span></a><span class="sd">    about telling good trays from bad.</span>
+</span><span id="L-283"><a href="#L-283"><span class="linenos">283</span></a>
+</span><span id="L-284"><a href="#L-284"><span class="linenos">284</span></a><span class="sd">    Parameters</span>
+</span><span id="L-285"><a href="#L-285"><span class="linenos">285</span></a><span class="sd">    ----------</span>
+</span><span id="L-286"><a href="#L-286"><span class="linenos">286</span></a><span class="sd">    y_true : numpy.ndarray</span>
+</span><span id="L-287"><a href="#L-287"><span class="linenos">287</span></a><span class="sd">        Shape (n_images, n_classes); only its shape is used.</span>
+</span><span id="L-288"><a href="#L-288"><span class="linenos">288</span></a><span class="sd">    class_index : int</span>
+</span><span id="L-289"><a href="#L-289"><span class="linenos">289</span></a><span class="sd">        Defect class the rule always predicts (use the most common one).</span>
+</span><span id="L-290"><a href="#L-290"><span class="linenos">290</span></a>
+</span><span id="L-291"><a href="#L-291"><span class="linenos">291</span></a><span class="sd">    Returns</span>
+</span><span id="L-292"><a href="#L-292"><span class="linenos">292</span></a><span class="sd">    -------</span>
+</span><span id="L-293"><a href="#L-293"><span class="linenos">293</span></a><span class="sd">    numpy.ndarray</span>
+</span><span id="L-294"><a href="#L-294"><span class="linenos">294</span></a><span class="sd">        Boolean array, same shape as ``y_true``.</span>
+</span><span id="L-295"><a href="#L-295"><span class="linenos">295</span></a><span class="sd">    """</span>
+</span><span id="L-296"><a href="#L-296"><span class="linenos">296</span></a>    <span class="n">p</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y_true</span><span class="p">)</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+</span><span id="L-297"><a href="#L-297"><span class="linenos">297</span></a>    <span class="n">p</span><span class="p">[:,</span> <span class="n">class_index</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span id="L-298"><a href="#L-298"><span class="linenos">298</span></a>    <span class="k">return</span> <span class="n">p</span>
+</span><span id="L-299"><a href="#L-299"><span class="linenos">299</span></a>
+</span><span id="L-300"><a href="#L-300"><span class="linenos">300</span></a>
+</span><span id="L-301"><a href="#L-301"><span class="linenos">301</span></a><span class="k">def</span><span class="w"> </span><span class="nf">tray_cost</span><span class="p">(</span><span class="n">y_true</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">miss_cost</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+</span><span id="L-302"><a href="#L-302"><span class="linenos">302</span></a>              <span class="n">waste_cost</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+</span><span id="L-303"><a href="#L-303"><span class="linenos">303</span></a><span class="w">    </span><span class="sd">"""Total cost of tray-level mistakes.</span>
+</span><span id="L-304"><a href="#L-304"><span class="linenos">304</span></a>
+</span><span id="L-305"><a href="#L-305"><span class="linenos">305</span></a><span class="sd">    cost = miss_cost x (defective trays passed) + waste_cost x (good trays rejected)</span>
+</span><span id="L-306"><a href="#L-306"><span class="linenos">306</span></a>
+</span><span id="L-307"><a href="#L-307"><span class="linenos">307</span></a><span class="sd">    Parameters</span>
+</span><span id="L-308"><a href="#L-308"><span class="linenos">308</span></a><span class="sd">    ----------</span>
+</span><span id="L-309"><a href="#L-309"><span class="linenos">309</span></a><span class="sd">    y_true, y_pred : numpy.ndarray</span>
+</span><span id="L-310"><a href="#L-310"><span class="linenos">310</span></a><span class="sd">        Shape (n_images, n_classes) presence arrays.</span>
+</span><span id="L-311"><a href="#L-311"><span class="linenos">311</span></a><span class="sd">    miss_cost : float</span>
+</span><span id="L-312"><a href="#L-312"><span class="linenos">312</span></a><span class="sd">        Cost of letting one defective tray through (recall / safety risk).</span>
+</span><span id="L-313"><a href="#L-313"><span class="linenos">313</span></a><span class="sd">    waste_cost : float</span>
+</span><span id="L-314"><a href="#L-314"><span class="linenos">314</span></a><span class="sd">        Cost of rejecting one good tray (wasted product).</span>
+</span><span id="L-315"><a href="#L-315"><span class="linenos">315</span></a>
+</span><span id="L-316"><a href="#L-316"><span class="linenos">316</span></a><span class="sd">    Returns</span>
+</span><span id="L-317"><a href="#L-317"><span class="linenos">317</span></a><span class="sd">    -------</span>
+</span><span id="L-318"><a href="#L-318"><span class="linenos">318</span></a><span class="sd">    float</span>
+</span><span id="L-319"><a href="#L-319"><span class="linenos">319</span></a><span class="sd">    """</span>
+</span><span id="L-320"><a href="#L-320"><span class="linenos">320</span></a>    <span class="k">if</span> <span class="n">miss_cost</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">waste_cost</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+</span><span id="L-321"><a href="#L-321"><span class="linenos">321</span></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"costs must be non-negative"</span><span class="p">)</span>
+</span><span id="L-322"><a href="#L-322"><span class="linenos">322</span></a>    <span class="n">fail_true</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y_true</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">bool</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</span><span id="L-323"><a href="#L-323"><span class="linenos">323</span></a>    <span class="n">fail_pred</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y_pred</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">bool</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</span><span id="L-324"><a href="#L-324"><span class="linenos">324</span></a>    <span class="n">misses</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">fail_true</span> <span class="o">&amp;</span> <span class="o">~</span><span class="n">fail_pred</span><span class="p">))</span>
+</span><span id="L-325"><a href="#L-325"><span class="linenos">325</span></a>    <span class="n">wastes</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="o">~</span><span class="n">fail_true</span> <span class="o">&amp;</span> <span class="n">fail_pred</span><span class="p">))</span>
+</span><span id="L-326"><a href="#L-326"><span class="linenos">326</span></a>    <span class="k">return</span> <span class="n">miss_cost</span> <span class="o">*</span> <span class="n">misses</span> <span class="o">+</span> <span class="n">waste_cost</span> <span class="o">*</span> <span class="n">wastes</span>
+</span><span id="L-327"><a href="#L-327"><span class="linenos">327</span></a>
+</span><span id="L-328"><a href="#L-328"><span class="linenos">328</span></a>
+</span><span id="L-329"><a href="#L-329"><span class="linenos">329</span></a><span class="k">def</span><span class="w"> </span><span class="nf">cost_threshold</span><span class="p">(</span><span class="n">y_true</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">scores</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">thresholds</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+</span><span id="L-330"><a href="#L-330"><span class="linenos">330</span></a>                   <span class="n">miss_cost</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">waste_cost</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]:</span>
+</span><span id="L-331"><a href="#L-331"><span class="linenos">331</span></a><span class="w">    </span><span class="sd">"""Decision threshold that minimises total tray cost.</span>
+</span><span id="L-332"><a href="#L-332"><span class="linenos">332</span></a>
+</span><span id="L-333"><a href="#L-333"><span class="linenos">333</span></a><span class="sd">    Use on the **validation** split only; then apply the threshold to test.</span>
+</span><span id="L-334"><a href="#L-334"><span class="linenos">334</span></a><span class="sd">    Ties are broken towards the *lower* threshold (catch more defects).</span>
+</span><span id="L-335"><a href="#L-335"><span class="linenos">335</span></a>
+</span><span id="L-336"><a href="#L-336"><span class="linenos">336</span></a><span class="sd">    Parameters</span>
+</span><span id="L-337"><a href="#L-337"><span class="linenos">337</span></a><span class="sd">    ----------</span>
+</span><span id="L-338"><a href="#L-338"><span class="linenos">338</span></a><span class="sd">    y_true : numpy.ndarray</span>
+</span><span id="L-339"><a href="#L-339"><span class="linenos">339</span></a><span class="sd">        Shape (n_images, n_classes).</span>
+</span><span id="L-340"><a href="#L-340"><span class="linenos">340</span></a><span class="sd">    scores : numpy.ndarray</span>
+</span><span id="L-341"><a href="#L-341"><span class="linenos">341</span></a><span class="sd">        Shape (n_images, n_classes), presence scores in [0, 1].</span>
+</span><span id="L-342"><a href="#L-342"><span class="linenos">342</span></a><span class="sd">    thresholds : sequence of float</span>
+</span><span id="L-343"><a href="#L-343"><span class="linenos">343</span></a><span class="sd">        Candidate thresholds.</span>
+</span><span id="L-344"><a href="#L-344"><span class="linenos">344</span></a><span class="sd">    miss_cost, waste_cost : float</span>
+</span><span id="L-345"><a href="#L-345"><span class="linenos">345</span></a><span class="sd">        See `tray_cost`.</span>
+</span><span id="L-346"><a href="#L-346"><span class="linenos">346</span></a>
+</span><span id="L-347"><a href="#L-347"><span class="linenos">347</span></a><span class="sd">    Returns</span>
+</span><span id="L-348"><a href="#L-348"><span class="linenos">348</span></a><span class="sd">    -------</span>
+</span><span id="L-349"><a href="#L-349"><span class="linenos">349</span></a><span class="sd">    dict</span>
+</span><span id="L-350"><a href="#L-350"><span class="linenos">350</span></a><span class="sd">        ``threshold`` (best), ``costs`` (numpy array, one per threshold).</span>
+</span><span id="L-351"><a href="#L-351"><span class="linenos">351</span></a><span class="sd">    """</span>
+</span><span id="L-352"><a href="#L-352"><span class="linenos">352</span></a>    <span class="n">s</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">scores</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span id="L-353"><a href="#L-353"><span class="linenos">353</span></a>    <span class="n">costs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">tray_cost</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">s</span> <span class="o">&gt;=</span> <span class="n">t</span><span class="p">,</span> <span class="n">miss_cost</span><span class="p">,</span> <span class="n">waste_cost</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">thresholds</span><span class="p">])</span>
+</span><span id="L-354"><a href="#L-354"><span class="linenos">354</span></a>    <span class="n">best</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">costs</span><span class="p">))</span>  <span class="c1"># argmin returns the first (lowest) on ties</span>
+</span><span id="L-355"><a href="#L-355"><span class="linenos">355</span></a>    <span class="k">return</span> <span class="p">{</span><span class="s2">"threshold"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">thresholds</span><span class="p">[</span><span class="n">best</span><span class="p">]),</span> <span class="s2">"costs"</span><span class="p">:</span> <span class="n">costs</span><span class="p">}</span>
 </span></pre></div>
 
 
@@ -746,6 +878,276 @@ Random seed.</li>
 
 <ul>
 <li><strong>dict</strong>: <code>estimate</code> (on the full set), <code>low</code>, <code>high</code>, <code>std</code>.</li>
+</ul>
+</div>
+
+
+                </section>
+                <section id="paired_bootstrap">
+                            <input id="paired_bootstrap-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
+<div class="attr function">
+            
+        <span class="def">def</span>
+        <span class="name">paired_bootstrap</span><span class="signature pdoc-code multiline">(<span class="param">	<span class="n">y_true</span><span class="p">:</span> <span class="n">numpy</span><span class="o">.</span><span class="n">ndarray</span>,</span><span class="param">	<span class="n">pred_a</span><span class="p">:</span> <span class="n">numpy</span><span class="o">.</span><span class="n">ndarray</span>,</span><span class="param">	<span class="n">pred_b</span><span class="p">:</span> <span class="n">numpy</span><span class="o">.</span><span class="n">ndarray</span>,</span><span class="param">	<span class="n">metric</span>,</span><span class="param">	<span class="n">n_boot</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2000</span>,</span><span class="param">	<span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.05</span>,</span><span class="param">	<span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span></span><span class="return-annotation">) -> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span>:</span></span>
+
+                <label class="view-source-button" for="paired_bootstrap-view-source"><span>View Source</span></label>
+
+    </div>
+    <a class="headerlink" href="#paired_bootstrap"></a>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="paired_bootstrap-239"><a href="#paired_bootstrap-239"><span class="linenos">239</span></a><span class="k">def</span><span class="w"> </span><span class="nf">paired_bootstrap</span><span class="p">(</span><span class="n">y_true</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">pred_a</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">pred_b</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">metric</span><span class="p">,</span>
+</span><span id="paired_bootstrap-240"><a href="#paired_bootstrap-240"><span class="linenos">240</span></a>                     <span class="n">n_boot</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2000</span><span class="p">,</span> <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+</span><span id="paired_bootstrap-241"><a href="#paired_bootstrap-241"><span class="linenos">241</span></a><span class="w">    </span><span class="sd">"""Bootstrap confidence interval for the DIFFERENCE between two models.</span>
+</span><span id="paired_bootstrap-242"><a href="#paired_bootstrap-242"><span class="linenos">242</span></a>
+</span><span id="paired_bootstrap-243"><a href="#paired_bootstrap-243"><span class="linenos">243</span></a><span class="sd">    Both models are scored on the *same* resampled trays each time, so tray-to-tray</span>
+</span><span id="paired_bootstrap-244"><a href="#paired_bootstrap-244"><span class="linenos">244</span></a><span class="sd">    difficulty cancels out. If the interval for ``metric(a) - metric(b)`` excludes 0,</span>
+</span><span id="paired_bootstrap-245"><a href="#paired_bootstrap-245"><span class="linenos">245</span></a><span class="sd">    the test set supports a real difference.</span>
+</span><span id="paired_bootstrap-246"><a href="#paired_bootstrap-246"><span class="linenos">246</span></a>
+</span><span id="paired_bootstrap-247"><a href="#paired_bootstrap-247"><span class="linenos">247</span></a><span class="sd">    Parameters</span>
+</span><span id="paired_bootstrap-248"><a href="#paired_bootstrap-248"><span class="linenos">248</span></a><span class="sd">    ----------</span>
+</span><span id="paired_bootstrap-249"><a href="#paired_bootstrap-249"><span class="linenos">249</span></a><span class="sd">    y_true : numpy.ndarray</span>
+</span><span id="paired_bootstrap-250"><a href="#paired_bootstrap-250"><span class="linenos">250</span></a><span class="sd">        Shape (n_images, n_classes).</span>
+</span><span id="paired_bootstrap-251"><a href="#paired_bootstrap-251"><span class="linenos">251</span></a><span class="sd">    pred_a, pred_b : numpy.ndarray</span>
+</span><span id="paired_bootstrap-252"><a href="#paired_bootstrap-252"><span class="linenos">252</span></a><span class="sd">        Predictions of model A and model B, same shape as ``y_true``.</span>
+</span><span id="paired_bootstrap-253"><a href="#paired_bootstrap-253"><span class="linenos">253</span></a><span class="sd">    metric : callable</span>
+</span><span id="paired_bootstrap-254"><a href="#paired_bootstrap-254"><span class="linenos">254</span></a><span class="sd">        ``metric(y_true, y_pred) -&gt; float``.</span>
+</span><span id="paired_bootstrap-255"><a href="#paired_bootstrap-255"><span class="linenos">255</span></a><span class="sd">    n_boot, alpha, seed</span>
+</span><span id="paired_bootstrap-256"><a href="#paired_bootstrap-256"><span class="linenos">256</span></a><span class="sd">        As in `bootstrap_ci`.</span>
+</span><span id="paired_bootstrap-257"><a href="#paired_bootstrap-257"><span class="linenos">257</span></a>
+</span><span id="paired_bootstrap-258"><a href="#paired_bootstrap-258"><span class="linenos">258</span></a><span class="sd">    Returns</span>
+</span><span id="paired_bootstrap-259"><a href="#paired_bootstrap-259"><span class="linenos">259</span></a><span class="sd">    -------</span>
+</span><span id="paired_bootstrap-260"><a href="#paired_bootstrap-260"><span class="linenos">260</span></a><span class="sd">    dict</span>
+</span><span id="paired_bootstrap-261"><a href="#paired_bootstrap-261"><span class="linenos">261</span></a><span class="sd">        ``diff`` (on the full set), ``low``, ``high``, ``p_a_not_better`` (share of</span>
+</span><span id="paired_bootstrap-262"><a href="#paired_bootstrap-262"><span class="linenos">262</span></a><span class="sd">        resamples where A did not beat B).</span>
+</span><span id="paired_bootstrap-263"><a href="#paired_bootstrap-263"><span class="linenos">263</span></a><span class="sd">    """</span>
+</span><span id="paired_bootstrap-264"><a href="#paired_bootstrap-264"><span class="linenos">264</span></a>    <span class="n">t</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y_true</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">pred_a</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">pred_b</span><span class="p">)</span>
+</span><span id="paired_bootstrap-265"><a href="#paired_bootstrap-265"><span class="linenos">265</span></a>    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="p">))</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+</span><span id="paired_bootstrap-266"><a href="#paired_bootstrap-266"><span class="linenos">266</span></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"inputs must be non-empty and the same length"</span><span class="p">)</span>
+</span><span id="paired_bootstrap-267"><a href="#paired_bootstrap-267"><span class="linenos">267</span></a>    <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+</span><span id="paired_bootstrap-268"><a href="#paired_bootstrap-268"><span class="linenos">268</span></a>    <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+</span><span id="paired_bootstrap-269"><a href="#paired_bootstrap-269"><span class="linenos">269</span></a>    <span class="n">d</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">n_boot</span><span class="p">)</span>
+</span><span id="paired_bootstrap-270"><a href="#paired_bootstrap-270"><span class="linenos">270</span></a>    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_boot</span><span class="p">):</span>
+</span><span id="paired_bootstrap-271"><a href="#paired_bootstrap-271"><span class="linenos">271</span></a>        <span class="n">idx</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+</span><span id="paired_bootstrap-272"><a href="#paired_bootstrap-272"><span class="linenos">272</span></a>        <span class="n">d</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">metric</span><span class="p">(</span><span class="n">t</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="n">a</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span> <span class="o">-</span> <span class="n">metric</span><span class="p">(</span><span class="n">t</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="n">b</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span>
+</span><span id="paired_bootstrap-273"><a href="#paired_bootstrap-273"><span class="linenos">273</span></a>    <span class="k">return</span> <span class="p">{</span><span class="s2">"diff"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">metric</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">a</span><span class="p">)</span> <span class="o">-</span> <span class="n">metric</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">b</span><span class="p">)),</span>
+</span><span id="paired_bootstrap-274"><a href="#paired_bootstrap-274"><span class="linenos">274</span></a>            <span class="s2">"low"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nanpercentile</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="mi">100</span> <span class="o">*</span> <span class="n">alpha</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)),</span>
+</span><span id="paired_bootstrap-275"><a href="#paired_bootstrap-275"><span class="linenos">275</span></a>            <span class="s2">"high"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nanpercentile</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="mi">100</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">alpha</span> <span class="o">/</span> <span class="mi">2</span><span class="p">))),</span>
+</span><span id="paired_bootstrap-276"><a href="#paired_bootstrap-276"><span class="linenos">276</span></a>            <span class="s2">"p_a_not_better"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">d</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">))}</span>
+</span></pre></div>
+
+
+            <div class="docstring"><p>Bootstrap confidence interval for the DIFFERENCE between two models.</p>
+
+<p>Both models are scored on the <em>same</em> resampled trays each time, so tray-to-tray
+difficulty cancels out. If the interval for <code>metric(a) - metric(b)</code> excludes 0,
+the test set supports a real difference.</p>
+
+<h6 id="parameters">Parameters</h6>
+
+<ul>
+<li><strong>y_true</strong> (numpy.ndarray):
+Shape (n_images, n_classes).</li>
+<li><strong>pred_a, pred_b</strong> (numpy.ndarray):
+Predictions of model A and model B, same shape as <code>y_true</code>.</li>
+<li><strong>metric</strong> (callable):
+<code>metric(y_true, y_pred) -&gt; float</code>.</li>
+<li><strong>n_boot, alpha, seed</strong>: As in <code><a href="#bootstrap_ci">bootstrap_ci</a></code>.</li>
+</ul>
+
+<h6 id="returns">Returns</h6>
+
+<ul>
+<li><strong>dict</strong>: <code>diff</code> (on the full set), <code>low</code>, <code>high</code>, <code>p_a_not_better</code> (share of
+resamples where A did not beat B).</li>
+</ul>
+</div>
+
+
+                </section>
+                <section id="always_fail_predictions">
+                            <input id="always_fail_predictions-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
+<div class="attr function">
+            
+        <span class="def">def</span>
+        <span class="name">always_fail_predictions</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">y_true</span><span class="p">:</span> <span class="n">numpy</span><span class="o">.</span><span class="n">ndarray</span>, </span><span class="param"><span class="n">class_index</span><span class="p">:</span> <span class="nb">int</span></span><span class="return-annotation">) -> <span class="n">numpy</span><span class="o">.</span><span class="n">ndarray</span>:</span></span>
+
+                <label class="view-source-button" for="always_fail_predictions-view-source"><span>View Source</span></label>
+
+    </div>
+    <a class="headerlink" href="#always_fail_predictions"></a>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="always_fail_predictions-279"><a href="#always_fail_predictions-279"><span class="linenos">279</span></a><span class="k">def</span><span class="w"> </span><span class="nf">always_fail_predictions</span><span class="p">(</span><span class="n">y_true</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">class_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+</span><span id="always_fail_predictions-280"><a href="#always_fail_predictions-280"><span class="linenos">280</span></a><span class="w">    </span><span class="sd">"""Predictions of the trivial rule "every tray has defect ``class_index``".</span>
+</span><span id="always_fail_predictions-281"><a href="#always_fail_predictions-281"><span class="linenos">281</span></a>
+</span><span id="always_fail_predictions-282"><a href="#always_fail_predictions-282"><span class="linenos">282</span></a><span class="sd">    A model that does not beat this rule on balanced accuracy has learned nothing useful</span>
+</span><span id="always_fail_predictions-283"><a href="#always_fail_predictions-283"><span class="linenos">283</span></a><span class="sd">    about telling good trays from bad.</span>
+</span><span id="always_fail_predictions-284"><a href="#always_fail_predictions-284"><span class="linenos">284</span></a>
+</span><span id="always_fail_predictions-285"><a href="#always_fail_predictions-285"><span class="linenos">285</span></a><span class="sd">    Parameters</span>
+</span><span id="always_fail_predictions-286"><a href="#always_fail_predictions-286"><span class="linenos">286</span></a><span class="sd">    ----------</span>
+</span><span id="always_fail_predictions-287"><a href="#always_fail_predictions-287"><span class="linenos">287</span></a><span class="sd">    y_true : numpy.ndarray</span>
+</span><span id="always_fail_predictions-288"><a href="#always_fail_predictions-288"><span class="linenos">288</span></a><span class="sd">        Shape (n_images, n_classes); only its shape is used.</span>
+</span><span id="always_fail_predictions-289"><a href="#always_fail_predictions-289"><span class="linenos">289</span></a><span class="sd">    class_index : int</span>
+</span><span id="always_fail_predictions-290"><a href="#always_fail_predictions-290"><span class="linenos">290</span></a><span class="sd">        Defect class the rule always predicts (use the most common one).</span>
+</span><span id="always_fail_predictions-291"><a href="#always_fail_predictions-291"><span class="linenos">291</span></a>
+</span><span id="always_fail_predictions-292"><a href="#always_fail_predictions-292"><span class="linenos">292</span></a><span class="sd">    Returns</span>
+</span><span id="always_fail_predictions-293"><a href="#always_fail_predictions-293"><span class="linenos">293</span></a><span class="sd">    -------</span>
+</span><span id="always_fail_predictions-294"><a href="#always_fail_predictions-294"><span class="linenos">294</span></a><span class="sd">    numpy.ndarray</span>
+</span><span id="always_fail_predictions-295"><a href="#always_fail_predictions-295"><span class="linenos">295</span></a><span class="sd">        Boolean array, same shape as ``y_true``.</span>
+</span><span id="always_fail_predictions-296"><a href="#always_fail_predictions-296"><span class="linenos">296</span></a><span class="sd">    """</span>
+</span><span id="always_fail_predictions-297"><a href="#always_fail_predictions-297"><span class="linenos">297</span></a>    <span class="n">p</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y_true</span><span class="p">)</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+</span><span id="always_fail_predictions-298"><a href="#always_fail_predictions-298"><span class="linenos">298</span></a>    <span class="n">p</span><span class="p">[:,</span> <span class="n">class_index</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span id="always_fail_predictions-299"><a href="#always_fail_predictions-299"><span class="linenos">299</span></a>    <span class="k">return</span> <span class="n">p</span>
+</span></pre></div>
+
+
+            <div class="docstring"><p>Predictions of the trivial rule "every tray has defect <code>class_index</code>".</p>
+
+<p>A model that does not beat this rule on balanced accuracy has learned nothing useful
+about telling good trays from bad.</p>
+
+<h6 id="parameters">Parameters</h6>
+
+<ul>
+<li><strong>y_true</strong> (numpy.ndarray):
+Shape (n_images, n_classes); only its shape is used.</li>
+<li><strong>class_index</strong> (int):
+Defect class the rule always predicts (use the most common one).</li>
+</ul>
+
+<h6 id="returns">Returns</h6>
+
+<ul>
+<li><strong>numpy.ndarray</strong>: Boolean array, same shape as <code>y_true</code>.</li>
+</ul>
+</div>
+
+
+                </section>
+                <section id="tray_cost">
+                            <input id="tray_cost-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
+<div class="attr function">
+            
+        <span class="def">def</span>
+        <span class="name">tray_cost</span><span class="signature pdoc-code multiline">(<span class="param">	<span class="n">y_true</span><span class="p">:</span> <span class="n">numpy</span><span class="o">.</span><span class="n">ndarray</span>,</span><span class="param">	<span class="n">y_pred</span><span class="p">:</span> <span class="n">numpy</span><span class="o">.</span><span class="n">ndarray</span>,</span><span class="param">	<span class="n">miss_cost</span><span class="p">:</span> <span class="nb">float</span>,</span><span class="param">	<span class="n">waste_cost</span><span class="p">:</span> <span class="nb">float</span></span><span class="return-annotation">) -> <span class="nb">float</span>:</span></span>
+
+                <label class="view-source-button" for="tray_cost-view-source"><span>View Source</span></label>
+
+    </div>
+    <a class="headerlink" href="#tray_cost"></a>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="tray_cost-302"><a href="#tray_cost-302"><span class="linenos">302</span></a><span class="k">def</span><span class="w"> </span><span class="nf">tray_cost</span><span class="p">(</span><span class="n">y_true</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">miss_cost</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+</span><span id="tray_cost-303"><a href="#tray_cost-303"><span class="linenos">303</span></a>              <span class="n">waste_cost</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+</span><span id="tray_cost-304"><a href="#tray_cost-304"><span class="linenos">304</span></a><span class="w">    </span><span class="sd">"""Total cost of tray-level mistakes.</span>
+</span><span id="tray_cost-305"><a href="#tray_cost-305"><span class="linenos">305</span></a>
+</span><span id="tray_cost-306"><a href="#tray_cost-306"><span class="linenos">306</span></a><span class="sd">    cost = miss_cost x (defective trays passed) + waste_cost x (good trays rejected)</span>
+</span><span id="tray_cost-307"><a href="#tray_cost-307"><span class="linenos">307</span></a>
+</span><span id="tray_cost-308"><a href="#tray_cost-308"><span class="linenos">308</span></a><span class="sd">    Parameters</span>
+</span><span id="tray_cost-309"><a href="#tray_cost-309"><span class="linenos">309</span></a><span class="sd">    ----------</span>
+</span><span id="tray_cost-310"><a href="#tray_cost-310"><span class="linenos">310</span></a><span class="sd">    y_true, y_pred : numpy.ndarray</span>
+</span><span id="tray_cost-311"><a href="#tray_cost-311"><span class="linenos">311</span></a><span class="sd">        Shape (n_images, n_classes) presence arrays.</span>
+</span><span id="tray_cost-312"><a href="#tray_cost-312"><span class="linenos">312</span></a><span class="sd">    miss_cost : float</span>
+</span><span id="tray_cost-313"><a href="#tray_cost-313"><span class="linenos">313</span></a><span class="sd">        Cost of letting one defective tray through (recall / safety risk).</span>
+</span><span id="tray_cost-314"><a href="#tray_cost-314"><span class="linenos">314</span></a><span class="sd">    waste_cost : float</span>
+</span><span id="tray_cost-315"><a href="#tray_cost-315"><span class="linenos">315</span></a><span class="sd">        Cost of rejecting one good tray (wasted product).</span>
+</span><span id="tray_cost-316"><a href="#tray_cost-316"><span class="linenos">316</span></a>
+</span><span id="tray_cost-317"><a href="#tray_cost-317"><span class="linenos">317</span></a><span class="sd">    Returns</span>
+</span><span id="tray_cost-318"><a href="#tray_cost-318"><span class="linenos">318</span></a><span class="sd">    -------</span>
+</span><span id="tray_cost-319"><a href="#tray_cost-319"><span class="linenos">319</span></a><span class="sd">    float</span>
+</span><span id="tray_cost-320"><a href="#tray_cost-320"><span class="linenos">320</span></a><span class="sd">    """</span>
+</span><span id="tray_cost-321"><a href="#tray_cost-321"><span class="linenos">321</span></a>    <span class="k">if</span> <span class="n">miss_cost</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">waste_cost</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+</span><span id="tray_cost-322"><a href="#tray_cost-322"><span class="linenos">322</span></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"costs must be non-negative"</span><span class="p">)</span>
+</span><span id="tray_cost-323"><a href="#tray_cost-323"><span class="linenos">323</span></a>    <span class="n">fail_true</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y_true</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">bool</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</span><span id="tray_cost-324"><a href="#tray_cost-324"><span class="linenos">324</span></a>    <span class="n">fail_pred</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y_pred</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">bool</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</span><span id="tray_cost-325"><a href="#tray_cost-325"><span class="linenos">325</span></a>    <span class="n">misses</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">fail_true</span> <span class="o">&amp;</span> <span class="o">~</span><span class="n">fail_pred</span><span class="p">))</span>
+</span><span id="tray_cost-326"><a href="#tray_cost-326"><span class="linenos">326</span></a>    <span class="n">wastes</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="o">~</span><span class="n">fail_true</span> <span class="o">&amp;</span> <span class="n">fail_pred</span><span class="p">))</span>
+</span><span id="tray_cost-327"><a href="#tray_cost-327"><span class="linenos">327</span></a>    <span class="k">return</span> <span class="n">miss_cost</span> <span class="o">*</span> <span class="n">misses</span> <span class="o">+</span> <span class="n">waste_cost</span> <span class="o">*</span> <span class="n">wastes</span>
+</span></pre></div>
+
+
+            <div class="docstring"><p>Total cost of tray-level mistakes.</p>
+
+<p>cost = miss_cost x (defective trays passed) + waste_cost x (good trays rejected)</p>
+
+<h6 id="parameters">Parameters</h6>
+
+<ul>
+<li><strong>y_true, y_pred</strong> (numpy.ndarray):
+Shape (n_images, n_classes) presence arrays.</li>
+<li><strong>miss_cost</strong> (float):
+Cost of letting one defective tray through (recall / safety risk).</li>
+<li><strong>waste_cost</strong> (float):
+Cost of rejecting one good tray (wasted product).</li>
+</ul>
+
+<h6 id="returns">Returns</h6>
+
+<ul>
+<li><strong>float</strong></li>
+</ul>
+</div>
+
+
+                </section>
+                <section id="cost_threshold">
+                            <input id="cost_threshold-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
+<div class="attr function">
+            
+        <span class="def">def</span>
+        <span class="name">cost_threshold</span><span class="signature pdoc-code multiline">(<span class="param">	<span class="n">y_true</span><span class="p">:</span> <span class="n">numpy</span><span class="o">.</span><span class="n">ndarray</span>,</span><span class="param">	<span class="n">scores</span><span class="p">:</span> <span class="n">numpy</span><span class="o">.</span><span class="n">ndarray</span>,</span><span class="param">	<span class="n">thresholds</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span>,</span><span class="param">	<span class="n">miss_cost</span><span class="p">:</span> <span class="nb">float</span>,</span><span class="param">	<span class="n">waste_cost</span><span class="p">:</span> <span class="nb">float</span></span><span class="return-annotation">) -> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span>:</span></span>
+
+                <label class="view-source-button" for="cost_threshold-view-source"><span>View Source</span></label>
+
+    </div>
+    <a class="headerlink" href="#cost_threshold"></a>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="cost_threshold-330"><a href="#cost_threshold-330"><span class="linenos">330</span></a><span class="k">def</span><span class="w"> </span><span class="nf">cost_threshold</span><span class="p">(</span><span class="n">y_true</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">scores</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">thresholds</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+</span><span id="cost_threshold-331"><a href="#cost_threshold-331"><span class="linenos">331</span></a>                   <span class="n">miss_cost</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">waste_cost</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]:</span>
+</span><span id="cost_threshold-332"><a href="#cost_threshold-332"><span class="linenos">332</span></a><span class="w">    </span><span class="sd">"""Decision threshold that minimises total tray cost.</span>
+</span><span id="cost_threshold-333"><a href="#cost_threshold-333"><span class="linenos">333</span></a>
+</span><span id="cost_threshold-334"><a href="#cost_threshold-334"><span class="linenos">334</span></a><span class="sd">    Use on the **validation** split only; then apply the threshold to test.</span>
+</span><span id="cost_threshold-335"><a href="#cost_threshold-335"><span class="linenos">335</span></a><span class="sd">    Ties are broken towards the *lower* threshold (catch more defects).</span>
+</span><span id="cost_threshold-336"><a href="#cost_threshold-336"><span class="linenos">336</span></a>
+</span><span id="cost_threshold-337"><a href="#cost_threshold-337"><span class="linenos">337</span></a><span class="sd">    Parameters</span>
+</span><span id="cost_threshold-338"><a href="#cost_threshold-338"><span class="linenos">338</span></a><span class="sd">    ----------</span>
+</span><span id="cost_threshold-339"><a href="#cost_threshold-339"><span class="linenos">339</span></a><span class="sd">    y_true : numpy.ndarray</span>
+</span><span id="cost_threshold-340"><a href="#cost_threshold-340"><span class="linenos">340</span></a><span class="sd">        Shape (n_images, n_classes).</span>
+</span><span id="cost_threshold-341"><a href="#cost_threshold-341"><span class="linenos">341</span></a><span class="sd">    scores : numpy.ndarray</span>
+</span><span id="cost_threshold-342"><a href="#cost_threshold-342"><span class="linenos">342</span></a><span class="sd">        Shape (n_images, n_classes), presence scores in [0, 1].</span>
+</span><span id="cost_threshold-343"><a href="#cost_threshold-343"><span class="linenos">343</span></a><span class="sd">    thresholds : sequence of float</span>
+</span><span id="cost_threshold-344"><a href="#cost_threshold-344"><span class="linenos">344</span></a><span class="sd">        Candidate thresholds.</span>
+</span><span id="cost_threshold-345"><a href="#cost_threshold-345"><span class="linenos">345</span></a><span class="sd">    miss_cost, waste_cost : float</span>
+</span><span id="cost_threshold-346"><a href="#cost_threshold-346"><span class="linenos">346</span></a><span class="sd">        See `tray_cost`.</span>
+</span><span id="cost_threshold-347"><a href="#cost_threshold-347"><span class="linenos">347</span></a>
+</span><span id="cost_threshold-348"><a href="#cost_threshold-348"><span class="linenos">348</span></a><span class="sd">    Returns</span>
+</span><span id="cost_threshold-349"><a href="#cost_threshold-349"><span class="linenos">349</span></a><span class="sd">    -------</span>
+</span><span id="cost_threshold-350"><a href="#cost_threshold-350"><span class="linenos">350</span></a><span class="sd">    dict</span>
+</span><span id="cost_threshold-351"><a href="#cost_threshold-351"><span class="linenos">351</span></a><span class="sd">        ``threshold`` (best), ``costs`` (numpy array, one per threshold).</span>
+</span><span id="cost_threshold-352"><a href="#cost_threshold-352"><span class="linenos">352</span></a><span class="sd">    """</span>
+</span><span id="cost_threshold-353"><a href="#cost_threshold-353"><span class="linenos">353</span></a>    <span class="n">s</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">scores</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span id="cost_threshold-354"><a href="#cost_threshold-354"><span class="linenos">354</span></a>    <span class="n">costs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">tray_cost</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">s</span> <span class="o">&gt;=</span> <span class="n">t</span><span class="p">,</span> <span class="n">miss_cost</span><span class="p">,</span> <span class="n">waste_cost</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">thresholds</span><span class="p">])</span>
+</span><span id="cost_threshold-355"><a href="#cost_threshold-355"><span class="linenos">355</span></a>    <span class="n">best</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">costs</span><span class="p">))</span>  <span class="c1"># argmin returns the first (lowest) on ties</span>
+</span><span id="cost_threshold-356"><a href="#cost_threshold-356"><span class="linenos">356</span></a>    <span class="k">return</span> <span class="p">{</span><span class="s2">"threshold"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">thresholds</span><span class="p">[</span><span class="n">best</span><span class="p">]),</span> <span class="s2">"costs"</span><span class="p">:</span> <span class="n">costs</span><span class="p">}</span>
+</span></pre></div>
+
+
+            <div class="docstring"><p>Decision threshold that minimises total tray cost.</p>
+
+<p>Use on the <strong>validation</strong> split only; then apply the threshold to test.
+Ties are broken towards the <em>lower</em> threshold (catch more defects).</p>
+
+<h6 id="parameters">Parameters</h6>
+
+<ul>
+<li><strong>y_true</strong> (numpy.ndarray):
+Shape (n_images, n_classes).</li>
+<li><strong>scores</strong> (numpy.ndarray):
+Shape (n_images, n_classes), presence scores in [0, 1].</li>
+<li><strong>thresholds</strong> (sequence of float):
+Candidate thresholds.</li>
+<li><strong>miss_cost, waste_cost</strong> (float):
+See <code><a href="#tray_cost">tray_cost</a></code>.</li>
+</ul>
+
+<h6 id="returns">Returns</h6>
+
+<ul>
+<li><strong>dict</strong>: <code>threshold</code> (best), <code>costs</code> (numpy array, one per threshold).</li>
 </ul>
 </div>
 

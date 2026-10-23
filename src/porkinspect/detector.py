@@ -151,20 +151,41 @@ def detections_to_scores(detections: Sequence[Sequence[Tuple]], n_classes: int) 
                      for dets in detections]) if len(detections) else np.zeros((0, n_classes))
 
 
-def model_gflops(model) -> Optional[float]:
-    """GFLOPs per image reported by Ultralytics (at 640 px), or None if unavailable.
+def model_gflops(model, imgsz: int = 640) -> Optional[float]:
+    """GFLOPs for one image at ``imgsz``.
+
+    Tries Ultralytics' own counter first; if that is unavailable (it returned nothing in
+    run 1), falls back to `porkinspect.performance.count_flops` on the underlying
+    PyTorch network, which counts Conv2d and Linear layers only.
 
     Parameters
     ----------
     model : ultralytics.YOLO
         Detector.
+    imgsz : int
+        Square input size in pixels.
 
     Returns
     -------
     float or None
+        GFLOPs per image, or None if neither method works.
     """
     try:
-        info = model.info(verbose=False)
-        return float(info[-1]) if info else None
+        from ultralytics.utils.torch_utils import get_flops
+
+        g = float(get_flops(model.model, imgsz))
+        if g > 0:
+            return g
     except Exception:  # pragma: no cover - depends on ultralytics version
+        pass
+    try:
+        import copy
+
+        import torch
+
+        from .performance import count_flops
+
+        net = copy.deepcopy(model.model).float().cpu()
+        return count_flops(net, (1, 3, imgsz, imgsz))["flops"] / 1e9
+    except Exception:  # pragma: no cover
         return None

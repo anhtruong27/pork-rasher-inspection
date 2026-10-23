@@ -233,3 +233,123 @@ def bootstrap_ci(y_true: np.ndarray, y_pred: np.ndarray, metric, n_boot: int = 2
             "low": float(np.nanpercentile(vals, 100 * alpha / 2)),
             "high": float(np.nanpercentile(vals, 100 * (1 - alpha / 2))),
             "std": float(np.nanstd(vals))}
+
+
+def paired_bootstrap(y_true: np.ndarray, pred_a: np.ndarray, pred_b: np.ndarray, metric,
+                     n_boot: int = 2000, alpha: float = 0.05, seed: int = 0) -> Dict[str, float]:
+    """Bootstrap confidence interval for the DIFFERENCE between two models.
+
+    Both models are scored on the *same* resampled trays each time, so tray-to-tray
+    difficulty cancels out. If the interval for ``metric(a) - metric(b)`` excludes 0,
+    the test set supports a real difference.
+
+    Parameters
+    ----------
+    y_true : numpy.ndarray
+        Shape (n_images, n_classes).
+    pred_a, pred_b : numpy.ndarray
+        Predictions of model A and model B, same shape as ``y_true``.
+    metric : callable
+        ``metric(y_true, y_pred) -> float``.
+    n_boot, alpha, seed
+        As in `bootstrap_ci`.
+
+    Returns
+    -------
+    dict
+        ``diff`` (on the full set), ``low``, ``high``, ``p_a_not_better`` (share of
+        resamples where A did not beat B).
+    """
+    t, a, b = np.asarray(y_true), np.asarray(pred_a), np.asarray(pred_b)
+    if not (len(t) == len(a) == len(b)) or len(t) == 0:
+        raise ValueError("inputs must be non-empty and the same length")
+    rng = np.random.default_rng(seed)
+    n = len(t)
+    d = np.empty(n_boot)
+    for i in range(n_boot):
+        idx = rng.integers(0, n, n)
+        d[i] = metric(t[idx], a[idx]) - metric(t[idx], b[idx])
+    return {"diff": float(metric(t, a) - metric(t, b)),
+            "low": float(np.nanpercentile(d, 100 * alpha / 2)),
+            "high": float(np.nanpercentile(d, 100 * (1 - alpha / 2))),
+            "p_a_not_better": float(np.mean(d <= 0))}
+
+
+def always_fail_predictions(y_true: np.ndarray, class_index: int) -> np.ndarray:
+    """Predictions of the trivial rule "every tray has defect ``class_index``".
+
+    A model that does not beat this rule on balanced accuracy has learned nothing useful
+    about telling good trays from bad.
+
+    Parameters
+    ----------
+    y_true : numpy.ndarray
+        Shape (n_images, n_classes); only its shape is used.
+    class_index : int
+        Defect class the rule always predicts (use the most common one).
+
+    Returns
+    -------
+    numpy.ndarray
+        Boolean array, same shape as ``y_true``.
+    """
+    p = np.zeros(np.asarray(y_true).shape, dtype=bool)
+    p[:, class_index] = True
+    return p
+
+
+def tray_cost(y_true: np.ndarray, y_pred: np.ndarray, miss_cost: float,
+              waste_cost: float) -> float:
+    """Total cost of tray-level mistakes.
+
+    cost = miss_cost x (defective trays passed) + waste_cost x (good trays rejected)
+
+    Parameters
+    ----------
+    y_true, y_pred : numpy.ndarray
+        Shape (n_images, n_classes) presence arrays.
+    miss_cost : float
+        Cost of letting one defective tray through (recall / safety risk).
+    waste_cost : float
+        Cost of rejecting one good tray (wasted product).
+
+    Returns
+    -------
+    float
+    """
+    if miss_cost < 0 or waste_cost < 0:
+        raise ValueError("costs must be non-negative")
+    fail_true = np.asarray(y_true).astype(bool).any(axis=1)
+    fail_pred = np.asarray(y_pred).astype(bool).any(axis=1)
+    misses = int(np.sum(fail_true & ~fail_pred))
+    wastes = int(np.sum(~fail_true & fail_pred))
+    return miss_cost * misses + waste_cost * wastes
+
+
+def cost_threshold(y_true: np.ndarray, scores: np.ndarray, thresholds: Sequence[float],
+                   miss_cost: float, waste_cost: float) -> Dict[str, object]:
+    """Decision threshold that minimises total tray cost.
+
+    Use on the **validation** split only; then apply the threshold to test.
+    Ties are broken towards the *lower* threshold (catch more defects).
+
+    Parameters
+    ----------
+    y_true : numpy.ndarray
+        Shape (n_images, n_classes).
+    scores : numpy.ndarray
+        Shape (n_images, n_classes), presence scores in [0, 1].
+    thresholds : sequence of float
+        Candidate thresholds.
+    miss_cost, waste_cost : float
+        See `tray_cost`.
+
+    Returns
+    -------
+    dict
+        ``threshold`` (best), ``costs`` (numpy array, one per threshold).
+    """
+    s = np.asarray(scores, dtype=float)
+    costs = np.array([tray_cost(y_true, s >= t, miss_cost, waste_cost) for t in thresholds])
+    best = int(np.argmin(costs))  # argmin returns the first (lowest) on ties
+    return {"threshold": float(thresholds[best]), "costs": costs}
