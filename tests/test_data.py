@@ -166,3 +166,14 @@ def test_write_yolo_split(tmp_path, tiny_dataset):
     report, rec2 = audit_dataset(tmp_path / "out")
     assert report.images_per_split == {"train": 3, "valid": 1, "test": 2}
     assert report.boxes_per_class["train"]["unsealed"] == 2
+
+
+def test_segment_split_keeps_huge_segment_out_of_test():
+    # one segment of 60 photos + 20 small segments of 2 photos; test target = 15 % of 100
+    nums = list(range(0, 120, 2)) + [10000 + 1000 * s + k for s in range(20) for k in (0, 2)]
+    def boxes(n):
+        return np.zeros((0, 5)) if n % 4 == 0 else np.array([[3, .5, .5, .1, .1]])
+    recs = _seq(nums, boxes)
+    for seed in range(5):
+        out = segment_split(recs, gap=10, test_frac=0.15, valid_frac=0.10, must_have=[3], seed=seed)
+        assert len(out["test"]) <= 1.3 * 15 and len(out["valid"]) <= 1.3 * 10

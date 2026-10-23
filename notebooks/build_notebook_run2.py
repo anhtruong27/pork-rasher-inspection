@@ -96,7 +96,7 @@ plt.tight_layout(); plt.savefig(f"{OUT}/frame_gaps.png", dpi=150); plt.show()
 """)
 
 md(r"""
-**Choose `GAP` now** (go back to cell 2, set it, re-run cell 2). Look for where the histogram changes from "frames of one shot" (small gaps) to "breaks between shots" (large gaps). Too small: neighbouring frames of one shot land in different splits (leakage). Too big: only a few huge segments, and the test set may be one single shot.
+**Choose `GAP` now** (go back to cell 2, set it, re-run cell 2). Look for where the histogram changes from "frames of one shot" (small gaps) to "breaks between shots" (large gaps). Too small: neighbouring frames of one shot land in different splits (leakage). Too big: only a few huge segments, and the test set may be one single shot. Cell 5b then shows test photos next to their nearest training photo, so you can check by eye that they are different trays.
 """)
 
 code(r"""
@@ -112,6 +112,22 @@ txt = report2.to_text() + f"\n\nGAP = {GAP}, split seed = {split['seed']}\n"
 for w in (0, 2, 10, 30, GAP):
     txt += f"test trays with a train/valid frame within {w:4d} frames: {len(near_duplicate_leaks(records['train'] + records['valid'], records['test'], window=w))}\n"
 print(txt); Path(f"{OUT}/dataset_audit_run2.txt").write_text(txt)
+""")
+
+code(r"""
+# 5b. EYEBALL CHECK: is the nearest training photo really a DIFFERENT tray?
+from porkinspect.data import frame_key
+from porkinspect.io_utils import load_image
+train_frames = [(frame_key(r.source_id), r) for r in records["train"]]
+fig, axes = plt.subplots(4, 2, figsize=(10, 14))
+rng = np.random.default_rng(1)
+for row, i in zip(axes, rng.choice(len(records["test"]), 4, replace=False)):
+    t = records["test"][i]; (pre, num) = frame_key(t.source_id)
+    d, near = min(((abs(n - num), r) for (p_, n), r in train_frames if p_ == pre and n is not None), key=lambda x: x[0])
+    row[0].imshow(load_image(t.image_path)[0]); row[0].set_title(f"TEST  frame {num}")
+    row[1].imshow(load_image(near.image_path)[0]); row[1].set_title(f"nearest TRAIN  frame {frame_key(near.source_id)[1]}  ({d} frames away)")
+    for a in row: a.axis("off")
+plt.tight_layout(); plt.savefig(f"{OUT}/nearest_train_check.png", dpi=110); plt.show()
 """)
 
 code(r"""

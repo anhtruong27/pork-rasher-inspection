@@ -517,6 +517,8 @@ def segment_split(records: Sequence[ImageRecord], gap: int, test_frac: float = 0
 
     Every augmented copy of a photo follows its photo, and every photo follows its
     segment, so no test photo has a training photo within ``gap`` frames of it.
+    Segments too large for the test/valid target (more than 1.3x the target size) always
+    go to training.
     Valid and test keep ONE copy per original photo (augmentation is for training only).
 
     Parameters
@@ -571,9 +573,12 @@ def segment_split(records: Sequence[ImageRecord], gap: int, test_frac: float = 0
         order = [names[i] for i in rng.permutation(len(names))]
         test, valid, train = [], [], []
         for s in order:
-            if len(test) < test_frac * n_orig:
+            size = len(segments[s])
+            # a segment only joins test/valid if it does not overshoot the target by more
+            # than 30 %: one huge segment must not swallow the whole test set
+            if len(test) < test_frac * n_orig and len(test) + size <= 1.3 * test_frac * n_orig:
                 test += segments[s]
-            elif len(valid) < valid_frac * n_orig:
+            elif len(valid) < valid_frac * n_orig and len(valid) + size <= 1.3 * valid_frac * n_orig:
                 valid += segments[s]
             else:
                 train += segments[s]
