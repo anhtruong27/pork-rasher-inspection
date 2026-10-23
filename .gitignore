@@ -1,0 +1,16 @@
+# Data and large training outputs (download with the notebook instead)
+data/
+datasets/
+runs/
+*.pt
+*.pth
+*.zip
+# Secrets
+.env
+*api_key*
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.ipynb_checkpoints/
+*.egg-info/

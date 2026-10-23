@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "porkinspect"
+version = "1.0.0"
+description = "Defect detection and tray PASS/FAIL inspection for packaged pork rashers (MMA3001 project)"
+authors = [{name = "Andy Truong"}]
+license = {text = "MIT"}
+requires-python = ">=3.9"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

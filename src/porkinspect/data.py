@@ -1,0 +1,332 @@
+"""Dataset loading and auditing for the Roboflow YOLO export.
+
+Expected folder layout (Roboflow "YOLOv8" export)::
+
+    <root>/
+        data.yaml
+        train/images/*.jpg   train/labels/*.txt
+        valid/images/*.jpg   valid/labels/*.txt
+        test/images/*.jpg    test/labels/*.txt
+
+Each label file has one line per box: ``class_id x_center y_center width height``,
+with coordinates normalised to [0, 1] by the image width/height. An empty or missing
+label file means the image has no annotated defect.
+
+The audit answers questions that must be settled *before* training:
+
+- How many images and boxes per split and per class (class imbalance)?
+- Are there defect-free trays (needed for a PASS class)?
+- Are there malformed labels?
+- Do augmented copies of the same original photo appear in more than one split
+  (data leakage that would inflate test scores)?
+"""
+
+from __future__ import annotations
+
+import re
+from collections import Counter, defaultdict
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Dict, List, Optional, Sequence, Tuple
+
+import numpy as np
+
+SPLITS = ("train", "valid", "test")
+IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp"}
+
+# Roboflow renames files to "<original>_<ext>.rf.<hash>.<ext>"; augmented copies of the
+# same photo share the "<original>" part.
+_RF_PATTERN = re.compile(r"^(?P<stem>.+?)(?:_(?:jpg|jpeg|png|bmp))?\.rf\.[0-9a-fA-F]+$")
+
+
+class LabelFormatError(ValueError):
+    """Raised when a YOLO label line cannot be parsed or is out of range."""
+
+
+@dataclass
+class ImageRecord:
+    """One image and its boxes.
+
+    Attributes
+    ----------
+    image_path : pathlib.Path
+        Path to the image file.
+    boxes : numpy.ndarray
+        Array of shape (n, 5): ``class_id, xc, yc, w, h`` (normalised). ``n`` may be 0.
+    split : str
+        ``"train"``, ``"valid"`` or ``"test"``.
+    """
+
+    image_path: Path
+    boxes: np.ndarray
+    split: str
+
+    @property
+    def source_id(self) -> str:
+        """Identifier of the original photo this image was derived from."""
+        return source_stem(self.image_path.name)
+
+
+@dataclass
+class AuditReport:
+    """Summary statistics returned by `audit_dataset`."""
+
+    class_names: List[str]
+    images_per_split: Dict[str, int] = field(default_factory=dict)
+    empty_images_per_split: Dict[str, int] = field(default_factory=dict)
+    boxes_per_class: Dict[str, Dict[str, int]] = field(default_factory=dict)
+    images_with_class: Dict[str, Dict[str, int]] = field(default_factory=dict)
+    malformed_files: List[str] = field(default_factory=list)
+    leaked_sources: Dict[str, List[str]] = field(default_factory=dict)
+
+    def to_text(self) -> str:
+        """Return a human-readable multi-line summary."""
+        lines = ["DATASET AUDIT", "============="]
+        for s in self.images_per_split:
+            lines.append(
+                f"{s:>5}: {self.images_per_split[s]:5d} images, "
+                f"{self.empty_images_per_split.get(s, 0):4d} with no defect boxes"
+            )
+        lines.append("")
+        header = "class".ljust(18) + "".join(f"{s:>16}" for s in self.images_per_split)
+        lines.append(header + "   (boxes / images containing class)")
+        for c in self.class_names:
+            row = c.ljust(18)
+            for s in self.images_per_split:
+                row += f"{self.boxes_per_class[s].get(c, 0):>9d} / {self.images_with_class[s].get(c, 0):<5d}"
+            lines.append(row)
+        lines.append("")
+        lines.append(f"Malformed label files: {len(self.malformed_files)}")
+        lines.append(
+            f"Original photos appearing in more than one split (leakage): "
+            f"{len(self.leaked_sources)}"
+        )
+        for src, splits in list(self.leaked_sources.items())[:10]:
+            lines.append(f"   {src}: {splits}")
+        return "\n".join(lines)
+
+
+def source_stem(filename: str) -> str:
+    """Recover the original-photo identifier from a Roboflow file name.
+
+    Parameters
+    ----------
+    filename : str
+        e.g. ``"IMG_0042_jpg.rf.3f2a9c.jpg"``.
+
+    Returns
+    -------
+    str
+        e.g. ``"IMG_0042"``. Names without the Roboflow suffix are returned without
+        their extension.
+
+    Examples
+    --------
+    >>> source_stem("IMG_0042_jpg.rf.3f2a9c.jpg")
+    'IMG_0042'
+    >>> source_stem("tray7.png")
+    'tray7'
+    """
+    stem = Path(filename).stem
+    m = _RF_PATTERN.match(stem)
+    return m.group("stem") if m else stem
+
+
+def parse_yolo_label(path: Path, n_classes: Optional[int] = None) -> np.ndarray:
+    """Parse one YOLO label file.
+
+    Parameters
+    ----------
+    path : pathlib.Path
+        Label file. A missing file is treated as "no boxes".
+    n_classes : int, optional
+        If given, class ids must lie in ``[0, n_classes)``.
+
+    Returns
+    -------
+    numpy.ndarray
+        Shape (n, 5), dtype float: ``class_id, xc, yc, w, h``.
+
+    Raises
+    ------
+    LabelFormatError
+        If a line does not have 5 numbers, a class id is invalid, or a coordinate is
+        outside [0, 1] (a tolerance of 1e-3 is allowed for rounding), or a box has
+        non-positive size.
+    """
+    path = Path(path)
+    if not path.exists():
+        return np.zeros((0, 5), dtype=float)
+    rows = []
+    for i, line in enumerate(path.read_text().splitlines(), start=1):
+        line = line.strip()
+        if not line:
+            continue
+        parts = line.split()
+        if len(parts) != 5:
+            # Polygon (segmentation) labels have more than 5 values; reduce them to a box.
+            if len(parts) > 5 and (len(parts) - 1) % 2 == 0:
+                cls = parts[0]
+                xy = np.asarray(parts[1:], dtype=float).reshape(-1, 2)
+                x0, y0 = xy.min(axis=0)
+                x1, y1 = xy.max(axis=0)
+                parts = [cls, (x0 + x1) / 2, (y0 + y1) / 2, x1 - x0, y1 - y0]
+            else:
+                raise LabelFormatError(f"{path.name}:{i}: expected 5 values, got {len(parts)}")
+        try:
+            cls = float(parts[0])
+            coords = [float(v) for v in parts[1:]]
+        except ValueError as exc:
+            raise LabelFormatError(f"{path.name}:{i}: non-numeric value") from exc
+        if cls != int(cls) or cls < 0 or (n_classes is not None and cls >= n_classes):
+            raise LabelFormatError(f"{path.name}:{i}: invalid class id {parts[0]}")
+        tol = 1e-3
+        if any(v < -tol or v > 1 + tol for v in coords):
+            raise LabelFormatError(f"{path.name}:{i}: coordinate outside [0, 1]")
+        if coords[2] <= 0 or coords[3] <= 0:
+            raise LabelFormatError(f"{path.name}:{i}: box has non-positive size")
+        rows.append([cls] + coords)
+    return np.asarray(rows, dtype=float).reshape(-1, 5)
+
+
+def read_class_names(root: Path) -> List[str]:
+    """Read class names from ``<root>/data.yaml``.
+
+    Parameters
+    ----------
+    root : pathlib.Path
+        Dataset root folder.
+
+    Returns
+    -------
+    list of str
+        Class names in label-id order.
+    """
+    import yaml  # local import keeps the dependency optional for docs/tests
+
+    cfg = yaml.safe_load((Path(root) / "data.yaml").read_text())
+    names = cfg["names"]
+    if isinstance(names, dict):  # newer Ultralytics format {0: 'a', 1: 'b'}
+        names = [names[k] for k in sorted(names)]
+    return list(names)
+
+
+def scan_split(root: Path, split: str, n_classes: Optional[int] = None,
+               errors: Optional[List[str]] = None) -> List[ImageRecord]:
+    """List all images of a split with their boxes.
+
+    Parameters
+    ----------
+    root : pathlib.Path
+        Dataset root.
+    split : str
+        ``"train"``, ``"valid"`` or ``"test"``.
+    n_classes : int, optional
+        Number of classes, used to validate class ids.
+    errors : list of str, optional
+        If given, malformed label files are appended here and skipped instead of
+        raising.
+
+    Returns
+    -------
+    list of ImageRecord
+    """
+    img_dir = Path(root) / split / "images"
+    lbl_dir = Path(root) / split / "labels"
+    records = []
+    if not img_dir.exists():
+        return records
+    for img in sorted(img_dir.iterdir()):
+        if img.suffix.lower() not in IMAGE_EXTS:
+            continue
+        lbl = lbl_dir / (img.stem + ".txt")
+        try:
+            boxes = parse_yolo_label(lbl, n_classes)
+        except LabelFormatError as exc:
+            if errors is None:
+                raise
+            errors.append(str(exc))
+            continue
+        records.append(ImageRecord(img, boxes, split))
+    return records
+
+
+def presence_vector(boxes: np.ndarray, n_classes: int) -> np.ndarray:
+    """Convert boxes to a multi-hot "which defect types are present" vector.
+
+    Parameters
+    ----------
+    boxes : numpy.ndarray
+        Shape (n, 5) with class ids in column 0.
+    n_classes : int
+        Number of defect classes.
+
+    Returns
+    -------
+    numpy.ndarray
+        Shape (n_classes,), dtype ``float32``, 1.0 where the class appears.
+    """
+    v = np.zeros(n_classes, dtype=np.float32)
+    if len(boxes):
+        v[np.unique(boxes[:, 0].astype(int))] = 1.0
+    return v
+
+
+def find_leakage(records: Sequence[ImageRecord]) -> Dict[str, List[str]]:
+    """Find original photos whose derived images appear in more than one split.
+
+    Parameters
+    ----------
+    records : sequence of ImageRecord
+        Records from all splits.
+
+    Returns
+    -------
+    dict
+        ``{source_id: sorted list of splits}`` for every leaked source.
+    """
+    splits_by_source: Dict[str, set] = defaultdict(set)
+    for r in records:
+        splits_by_source[r.source_id].add(r.split)
+    return {s: sorted(v) for s, v in splits_by_source.items() if len(v) > 1}
+
+
+def audit_dataset(root: Path, class_names: Optional[Sequence[str]] = None
+                  ) -> Tuple[AuditReport, Dict[str, List[ImageRecord]]]:
+    """Audit a YOLO-format dataset.
+
+    Parameters
+    ----------
+    root : pathlib.Path
+        Dataset root containing ``data.yaml`` and split folders.
+    class_names : sequence of str, optional
+        Overrides the names in ``data.yaml``.
+
+    Returns
+    -------
+    report : AuditReport
+        Counts, empty images, malformed files and leakage.
+    records : dict
+        ``{split: list of ImageRecord}``.
+    """
+    root = Path(root)
+    names = list(class_names) if class_names else read_class_names(root)
+    report = AuditReport(class_names=names)
+    records: Dict[str, List[ImageRecord]] = {}
+    for split in SPLITS:
+        recs = scan_split(root, split, len(names), report.malformed_files)
+        if not recs and not (root / split).exists():
+            continue
+        records[split] = recs
+        report.images_per_split[split] = len(recs)
+        report.empty_images_per_split[split] = sum(len(r.boxes) == 0 for r in recs)
+        box_counts: Counter = Counter()
+        img_counts: Counter = Counter()
+        for r in recs:
+            ids = r.boxes[:, 0].astype(int)
+            box_counts.update(names[i] for i in ids)
+            img_counts.update(names[i] for i in np.unique(ids))
+        report.boxes_per_class[split] = dict(box_counts)
+        report.images_with_class[split] = dict(img_counts)
+    report.leaked_sources = find_leakage([r for v in records.values() for r in v])
+    return report, records
