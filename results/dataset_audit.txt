@@ -1,0 +1,25 @@
+DATASET AUDIT
+=============
+train:  3349 images,  684 with no defect boxes
+valid:   120 images,   14 with no defect boxes
+ test:    80 images,   12 with no defect boxes
+
+class                        train           valid            test   (boxes / images containing class)
+loose-meat               66 / 66           3 / 3            3 / 2    
+packaging-error        1712 / 1541        34 / 23          23 / 16   
+twisted-meat             72 / 69           3 / 3            4 / 4    
+unsealed               1055 / 1055        81 / 81          49 / 49   
+wrinkle                  18 / 18           0 / 0            0 / 0    
+
+Malformed label files: 0
+Original photos appearing in more than one split (leakage): 13
+   frame_with_red_1521: ['test', 'train']
+   frame_with_red_2223: ['train', 'valid']
+   frame_with_red_2247: ['train', 'valid']
+   frame_with_red_6510: ['train', 'valid']
+   frame_with_red_7277: ['train', 'valid']
+   frame_with_red_7506: ['test', 'train']
+   frame_with_red_7508: ['train', 'valid']
+   frame_with_red_7510: ['test', 'train']
+   frame_with_red_7555: ['train', 'valid']
+   frame_with_red_7617: ['test', 'train']

@@ -1,0 +1,123 @@
+{
+  "leakage_windows": [
+    {
+      "window": 0,
+      "leaked": 5,
+      "n_clean": 75,
+      "YOLOv8n detector": {
+        "macro_f1": 0.490167200900979,
+        "tray_accuracy": 0.8666666666666667
+      },
+      "Baseline CNN": {
+        "macro_f1": 0.4754385254385255,
+        "tray_accuracy": 0.84
+      }
+    },
+    {
+      "window": 2,
+      "leaked": 43,
+      "n_clean": 37,
+      "YOLOv8n detector": {
+        "macro_f1": 0.6747877445551865,
+        "tray_accuracy": 0.8648648648648649
+      },
+      "Baseline CNN": {
+        "macro_f1": 0.6017441860465116,
+        "tray_accuracy": 0.8378378378378378
+      }
+    },
+    {
+      "window": 10,
+      "leaked": 69,
+      "n_clean": 11,
+      "YOLOv8n detector": {
+        "macro_f1": 0.7666666666666666,
+        "tray_accuracy": 0.8181818181818182
+      },
+      "Baseline CNN": {
+        "macro_f1": 0.5444444444444444,
+        "tray_accuracy": 0.9090909090909091
+      }
+    },
+    {
+      "window": 30,
+      "leaked": 80,
+      "n_clean": 0,
+      "YOLOv8n detector": {
+        "macro_f1": 0.0,
+        "tray_accuracy": 0.0
+      },
+      "Baseline CNN": {
+        "macro_f1": 0.0,
+        "tray_accuracy": 0.0
+      }
+    },
+    {
+      "window": 100,
+      "leaked": 80,
+      "n_clean": 0,
+      "YOLOv8n detector": {
+        "macro_f1": 0.0,
+        "tray_accuracy": 0.0
+      },
+      "Baseline CNN": {
+        "macro_f1": 0.0,
+        "tray_accuracy": 0.0
+      }
+    }
+  ],
+  "bootstrap": {
+    "YOLOv8n detector": {
+      "macro_f1_all": {
+        "estimate": 0.48239836475130593,
+        "low": 0.380288830792863,
+        "high": 0.7161148299422633,
+        "std": 0.0860074271497301
+      },
+      "macro_f1_main_classes": {
+        "estimate": 0.821939586645469,
+        "low": 0.7162066475681629,
+        "high": 0.8974419247787611,
+        "std": 0.04631535278762671
+      },
+      "tray_accuracy": {
+        "estimate": 0.8625,
+        "low": 0.7875,
+        "high": 0.9375,
+        "std": 0.03780901016953499
+      },
+      "defective_trays_caught": {
+        "estimate": 0.9117647058823529,
+        "low": 0.8399677419354838,
+        "high": 0.9714285714285714,
+        "std": 0.034528698045920556
+      }
+    },
+    "Baseline CNN": {
+      "macro_f1_all": {
+        "estimate": 0.4612258501994047,
+        "low": 0.37800531425281236,
+        "high": 0.6294267727702848,
+        "std": 0.062000453784100754
+      },
+      "macro_f1_main_classes": {
+        "estimate": 0.7253502511234471,
+        "low": 0.6160276454052104,
+        "high": 0.8175699382719086,
+        "std": 0.05333565855103857
+      },
+      "tray_accuracy": {
+        "estimate": 0.8375,
+        "low": 0.75,
+        "high": 0.9125,
+        "std": 0.041966299258303676
+      },
+      "defective_trays_caught": {
+        "estimate": 0.9852941176470589,
+        "low": 0.953125,
+        "high": 1.0,
+        "std": 0.01464702730142578
+      }
+    }
+  }
+}
