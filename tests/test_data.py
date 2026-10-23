@@ -71,3 +71,30 @@ def test_audit_records_malformed_files(tiny_dataset):
     report, records = audit_dataset(root)
     assert len(report.malformed_files) == 1
     assert report.images_per_split["train"] == 2
+
+
+from porkinspect.data import ImageRecord, frame_key, near_duplicate_leaks
+from pathlib import Path
+
+
+def _rec(name, split):
+    return ImageRecord(Path(name), np.zeros((0, 5)), split)
+
+
+def test_frame_key():
+    assert frame_key("frame_with_red_7506") == ("frame_with_red_", 7506)
+    assert frame_key("tray") == ("tray", None)
+
+
+def test_near_duplicate_window():
+    train = [_rec("frame_with_red_7508_jpg.rf.aa.jpg", "train"),
+             _rec("frame_with_red_100_jpg.rf.bb.jpg", "train")]
+    test = [_rec("frame_with_red_7506_jpg.rf.cc.jpg", "test"),   # 2 frames away
+            _rec("frame_with_red_7600_jpg.rf.dd.jpg", "test"),   # 92 frames away
+            _rec("other_7508_jpg.rf.ee.jpg", "test"),            # different sequence
+            _rec("frame_with_red_100_jpg.rf.ff.jpg", "test")]    # exact same photo
+    assert near_duplicate_leaks(train, test, window=0) == [3]
+    assert near_duplicate_leaks(train, test, window=10) == [0, 3]
+    assert near_duplicate_leaks(train, test, window=100) == [0, 1, 3]
+    with pytest.raises(ValueError):
+        near_duplicate_leaks(train, test, window=-1)

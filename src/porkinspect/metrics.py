@@ -190,3 +190,46 @@ def best_threshold(sweep: Dict[str, np.ndarray], key: str = "macro_f1") -> float
     float
     """
     return float(sweep["threshold"][int(np.nanargmax(sweep[key]))])
+
+
+def bootstrap_ci(y_true: np.ndarray, y_pred: np.ndarray, metric, n_boot: int = 2000,
+                 alpha: float = 0.05, seed: int = 0) -> Dict[str, float]:
+    """Bootstrap confidence interval for any tray-level metric.
+
+    Trays are resampled with replacement ``n_boot`` times and the metric recomputed,
+    giving an estimate of how much the result could change with a different test set
+    of the same size. Essential here because the test split has only 80 trays.
+
+    Parameters
+    ----------
+    y_true, y_pred : numpy.ndarray
+        Shape (n_images, n_classes).
+    metric : callable
+        ``metric(y_true, y_pred) -> float``, e.g.
+        ``lambda t, p: multilabel_report(t, p, names)["macro_f1"]``.
+    n_boot : int
+        Number of bootstrap resamples.
+    alpha : float
+        1 - confidence level (0.05 gives a 95 % interval).
+    seed : int
+        Random seed.
+
+    Returns
+    -------
+    dict
+        ``estimate`` (on the full set), ``low``, ``high``, ``std``.
+    """
+    t = np.asarray(y_true)
+    p = np.asarray(y_pred)
+    if len(t) != len(p) or len(t) == 0:
+        raise ValueError("y_true and y_pred must be non-empty and the same length")
+    rng = np.random.default_rng(seed)
+    n = len(t)
+    vals = np.empty(n_boot)
+    for b in range(n_boot):
+        idx = rng.integers(0, n, n)
+        vals[b] = metric(t[idx], p[idx])
+    return {"estimate": float(metric(t, p)),
+            "low": float(np.nanpercentile(vals, 100 * alpha / 2)),
+            "high": float(np.nanpercentile(vals, 100 * (1 - alpha / 2))),
+            "std": float(np.nanstd(vals))}

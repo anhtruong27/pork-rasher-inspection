@@ -330,3 +330,93 @@ def audit_dataset(root: Path, class_names: Optional[Sequence[str]] = None
         report.images_with_class[split] = dict(img_counts)
     report.leaked_sources = find_leakage([r for v in records.values() for r in v])
     return report, records
+
+
+_FRAME_PATTERN = re.compile(r"^(?P<prefix>.*?)(?P<num>\d+)$")
+
+
+def frame_key(source_id: str) -> Tuple[str, Optional[int]]:
+    """Split a source id into a sequence prefix and a frame number.
+
+    Many images in this dataset are frames from a video (``frame_with_red_7506``).
+    Neighbouring frames are nearly identical, so they must be treated as duplicates
+    when checking for leakage.
+
+    Parameters
+    ----------
+    source_id : str
+        Output of `source_stem`.
+
+    Returns
+    -------
+    prefix : str
+        Text before the trailing number (``"frame_with_red_"``).
+    number : int or None
+        Trailing frame number, or None if the id does not end in digits.
+
+    Examples
+    --------
+    >>> frame_key("frame_with_red_7506")
+    ('frame_with_red_', 7506)
+    >>> frame_key("tray")
+    ('tray', None)
+    """
+    m = _FRAME_PATTERN.match(source_id)
+    if not m:
+        return source_id, None
+    return m.group("prefix"), int(m.group("num"))
+
+
+def near_duplicate_leaks(train: Sequence[ImageRecord], held_out: Sequence[ImageRecord],
+                         window: int = 30) -> List[int]:
+    """Indices of held-out images that have a near-identical frame in the training set.
+
+    A held-out image is flagged if a training image has the same sequence prefix and
+    a frame number within ``window`` frames (``window=0`` reduces to the exact
+    same-photo check of `find_leakage`).
+
+    Parameters
+    ----------
+    train : sequence of ImageRecord
+        Training records.
+    held_out : sequence of ImageRecord
+        Validation or test records.
+    window : int
+        Maximum frame distance treated as a near-duplicate. At ~30 frames/s,
+        ``window=30`` is about one second of video.
+
+    Returns
+    -------
+    list of int
+        Indices into ``held_out`` of leaked images.
+
+    Raises
+    ------
+    ValueError
+        If ``window`` is negative.
+    """
+    if window < 0:
+        raise ValueError("window must be >= 0")
+    frames: Dict[str, np.ndarray] = {}
+    exact = set()
+    tmp: Dict[str, List[int]] = defaultdict(list)
+    for r in train:
+        prefix, num = frame_key(r.source_id)
+        exact.add(r.source_id)
+        if num is not None:
+            tmp[prefix].append(num)
+    frames = {k: np.sort(np.asarray(v)) for k, v in tmp.items()}
+    leaked = []
+    for i, r in enumerate(held_out):
+        prefix, num = frame_key(r.source_id)
+        if r.source_id in exact:
+            leaked.append(i)
+            continue
+        if num is None or prefix not in frames:
+            continue
+        arr = frames[prefix]
+        j = np.searchsorted(arr, num)
+        nearest = min(abs(arr[k] - num) for k in (j - 1, j) if 0 <= k < len(arr))
+        if nearest <= window:
+            leaked.append(i)
+    return leaked

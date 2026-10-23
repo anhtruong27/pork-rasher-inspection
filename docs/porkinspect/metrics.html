@@ -45,6 +45,9 @@
             <li>
                     <a class="function" href="#best_threshold">best_threshold</a>
             </li>
+            <li>
+                    <a class="function" href="#bootstrap_ci">bootstrap_ci</a>
+            </li>
     </ul>
 
 
@@ -274,6 +277,49 @@ set contains defect-free trays</em>.</li>
 </span><span id="L-190"><a href="#L-190"><span class="linenos">190</span></a><span class="sd">    float</span>
 </span><span id="L-191"><a href="#L-191"><span class="linenos">191</span></a><span class="sd">    """</span>
 </span><span id="L-192"><a href="#L-192"><span class="linenos">192</span></a>    <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">sweep</span><span class="p">[</span><span class="s2">"threshold"</span><span class="p">][</span><span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nanargmax</span><span class="p">(</span><span class="n">sweep</span><span class="p">[</span><span class="n">key</span><span class="p">]))])</span>
+</span><span id="L-193"><a href="#L-193"><span class="linenos">193</span></a>
+</span><span id="L-194"><a href="#L-194"><span class="linenos">194</span></a>
+</span><span id="L-195"><a href="#L-195"><span class="linenos">195</span></a><span class="k">def</span><span class="w"> </span><span class="nf">bootstrap_ci</span><span class="p">(</span><span class="n">y_true</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">metric</span><span class="p">,</span> <span class="n">n_boot</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2000</span><span class="p">,</span>
+</span><span id="L-196"><a href="#L-196"><span class="linenos">196</span></a>                 <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+</span><span id="L-197"><a href="#L-197"><span class="linenos">197</span></a><span class="w">    </span><span class="sd">"""Bootstrap confidence interval for any tray-level metric.</span>
+</span><span id="L-198"><a href="#L-198"><span class="linenos">198</span></a>
+</span><span id="L-199"><a href="#L-199"><span class="linenos">199</span></a><span class="sd">    Trays are resampled with replacement ``n_boot`` times and the metric recomputed,</span>
+</span><span id="L-200"><a href="#L-200"><span class="linenos">200</span></a><span class="sd">    giving an estimate of how much the result could change with a different test set</span>
+</span><span id="L-201"><a href="#L-201"><span class="linenos">201</span></a><span class="sd">    of the same size. Essential here because the test split has only 80 trays.</span>
+</span><span id="L-202"><a href="#L-202"><span class="linenos">202</span></a>
+</span><span id="L-203"><a href="#L-203"><span class="linenos">203</span></a><span class="sd">    Parameters</span>
+</span><span id="L-204"><a href="#L-204"><span class="linenos">204</span></a><span class="sd">    ----------</span>
+</span><span id="L-205"><a href="#L-205"><span class="linenos">205</span></a><span class="sd">    y_true, y_pred : numpy.ndarray</span>
+</span><span id="L-206"><a href="#L-206"><span class="linenos">206</span></a><span class="sd">        Shape (n_images, n_classes).</span>
+</span><span id="L-207"><a href="#L-207"><span class="linenos">207</span></a><span class="sd">    metric : callable</span>
+</span><span id="L-208"><a href="#L-208"><span class="linenos">208</span></a><span class="sd">        ``metric(y_true, y_pred) -&gt; float``, e.g.</span>
+</span><span id="L-209"><a href="#L-209"><span class="linenos">209</span></a><span class="sd">        ``lambda t, p: multilabel_report(t, p, names)["macro_f1"]``.</span>
+</span><span id="L-210"><a href="#L-210"><span class="linenos">210</span></a><span class="sd">    n_boot : int</span>
+</span><span id="L-211"><a href="#L-211"><span class="linenos">211</span></a><span class="sd">        Number of bootstrap resamples.</span>
+</span><span id="L-212"><a href="#L-212"><span class="linenos">212</span></a><span class="sd">    alpha : float</span>
+</span><span id="L-213"><a href="#L-213"><span class="linenos">213</span></a><span class="sd">        1 - confidence level (0.05 gives a 95 % interval).</span>
+</span><span id="L-214"><a href="#L-214"><span class="linenos">214</span></a><span class="sd">    seed : int</span>
+</span><span id="L-215"><a href="#L-215"><span class="linenos">215</span></a><span class="sd">        Random seed.</span>
+</span><span id="L-216"><a href="#L-216"><span class="linenos">216</span></a>
+</span><span id="L-217"><a href="#L-217"><span class="linenos">217</span></a><span class="sd">    Returns</span>
+</span><span id="L-218"><a href="#L-218"><span class="linenos">218</span></a><span class="sd">    -------</span>
+</span><span id="L-219"><a href="#L-219"><span class="linenos">219</span></a><span class="sd">    dict</span>
+</span><span id="L-220"><a href="#L-220"><span class="linenos">220</span></a><span class="sd">        ``estimate`` (on the full set), ``low``, ``high``, ``std``.</span>
+</span><span id="L-221"><a href="#L-221"><span class="linenos">221</span></a><span class="sd">    """</span>
+</span><span id="L-222"><a href="#L-222"><span class="linenos">222</span></a>    <span class="n">t</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y_true</span><span class="p">)</span>
+</span><span id="L-223"><a href="#L-223"><span class="linenos">223</span></a>    <span class="n">p</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y_pred</span><span class="p">)</span>
+</span><span id="L-224"><a href="#L-224"><span class="linenos">224</span></a>    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+</span><span id="L-225"><a href="#L-225"><span class="linenos">225</span></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"y_true and y_pred must be non-empty and the same length"</span><span class="p">)</span>
+</span><span id="L-226"><a href="#L-226"><span class="linenos">226</span></a>    <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+</span><span id="L-227"><a href="#L-227"><span class="linenos">227</span></a>    <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+</span><span id="L-228"><a href="#L-228"><span class="linenos">228</span></a>    <span class="n">vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">n_boot</span><span class="p">)</span>
+</span><span id="L-229"><a href="#L-229"><span class="linenos">229</span></a>    <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_boot</span><span class="p">):</span>
+</span><span id="L-230"><a href="#L-230"><span class="linenos">230</span></a>        <span class="n">idx</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+</span><span id="L-231"><a href="#L-231"><span class="linenos">231</span></a>        <span class="n">vals</span><span class="p">[</span><span class="n">b</span><span class="p">]</span> <span class="o">=</span> <span class="n">metric</span><span class="p">(</span><span class="n">t</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="n">p</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span>
+</span><span id="L-232"><a href="#L-232"><span class="linenos">232</span></a>    <span class="k">return</span> <span class="p">{</span><span class="s2">"estimate"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">metric</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">p</span><span class="p">)),</span>
+</span><span id="L-233"><a href="#L-233"><span class="linenos">233</span></a>            <span class="s2">"low"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nanpercentile</span><span class="p">(</span><span class="n">vals</span><span class="p">,</span> <span class="mi">100</span> <span class="o">*</span> <span class="n">alpha</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)),</span>
+</span><span id="L-234"><a href="#L-234"><span class="linenos">234</span></a>            <span class="s2">"high"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nanpercentile</span><span class="p">(</span><span class="n">vals</span><span class="p">,</span> <span class="mi">100</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">alpha</span> <span class="o">/</span> <span class="mi">2</span><span class="p">))),</span>
+</span><span id="L-235"><a href="#L-235"><span class="linenos">235</span></a>            <span class="s2">"std"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nanstd</span><span class="p">(</span><span class="n">vals</span><span class="p">))}</span>
 </span></pre></div>
 
 
@@ -614,6 +660,92 @@ Metric to maximise. Default <code>"macro_f1"</code>.</li>
 
 <ul>
 <li><strong>float</strong></li>
+</ul>
+</div>
+
+
+                </section>
+                <section id="bootstrap_ci">
+                            <input id="bootstrap_ci-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
+<div class="attr function">
+            
+        <span class="def">def</span>
+        <span class="name">bootstrap_ci</span><span class="signature pdoc-code multiline">(<span class="param">	<span class="n">y_true</span><span class="p">:</span> <span class="n">numpy</span><span class="o">.</span><span class="n">ndarray</span>,</span><span class="param">	<span class="n">y_pred</span><span class="p">:</span> <span class="n">numpy</span><span class="o">.</span><span class="n">ndarray</span>,</span><span class="param">	<span class="n">metric</span>,</span><span class="param">	<span class="n">n_boot</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2000</span>,</span><span class="param">	<span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.05</span>,</span><span class="param">	<span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span></span><span class="return-annotation">) -> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span>:</span></span>
+
+                <label class="view-source-button" for="bootstrap_ci-view-source"><span>View Source</span></label>
+
+    </div>
+    <a class="headerlink" href="#bootstrap_ci"></a>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="bootstrap_ci-196"><a href="#bootstrap_ci-196"><span class="linenos">196</span></a><span class="k">def</span><span class="w"> </span><span class="nf">bootstrap_ci</span><span class="p">(</span><span class="n">y_true</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">y_pred</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">metric</span><span class="p">,</span> <span class="n">n_boot</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2000</span><span class="p">,</span>
+</span><span id="bootstrap_ci-197"><a href="#bootstrap_ci-197"><span class="linenos">197</span></a>                 <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+</span><span id="bootstrap_ci-198"><a href="#bootstrap_ci-198"><span class="linenos">198</span></a><span class="w">    </span><span class="sd">"""Bootstrap confidence interval for any tray-level metric.</span>
+</span><span id="bootstrap_ci-199"><a href="#bootstrap_ci-199"><span class="linenos">199</span></a>
+</span><span id="bootstrap_ci-200"><a href="#bootstrap_ci-200"><span class="linenos">200</span></a><span class="sd">    Trays are resampled with replacement ``n_boot`` times and the metric recomputed,</span>
+</span><span id="bootstrap_ci-201"><a href="#bootstrap_ci-201"><span class="linenos">201</span></a><span class="sd">    giving an estimate of how much the result could change with a different test set</span>
+</span><span id="bootstrap_ci-202"><a href="#bootstrap_ci-202"><span class="linenos">202</span></a><span class="sd">    of the same size. Essential here because the test split has only 80 trays.</span>
+</span><span id="bootstrap_ci-203"><a href="#bootstrap_ci-203"><span class="linenos">203</span></a>
+</span><span id="bootstrap_ci-204"><a href="#bootstrap_ci-204"><span class="linenos">204</span></a><span class="sd">    Parameters</span>
+</span><span id="bootstrap_ci-205"><a href="#bootstrap_ci-205"><span class="linenos">205</span></a><span class="sd">    ----------</span>
+</span><span id="bootstrap_ci-206"><a href="#bootstrap_ci-206"><span class="linenos">206</span></a><span class="sd">    y_true, y_pred : numpy.ndarray</span>
+</span><span id="bootstrap_ci-207"><a href="#bootstrap_ci-207"><span class="linenos">207</span></a><span class="sd">        Shape (n_images, n_classes).</span>
+</span><span id="bootstrap_ci-208"><a href="#bootstrap_ci-208"><span class="linenos">208</span></a><span class="sd">    metric : callable</span>
+</span><span id="bootstrap_ci-209"><a href="#bootstrap_ci-209"><span class="linenos">209</span></a><span class="sd">        ``metric(y_true, y_pred) -&gt; float``, e.g.</span>
+</span><span id="bootstrap_ci-210"><a href="#bootstrap_ci-210"><span class="linenos">210</span></a><span class="sd">        ``lambda t, p: multilabel_report(t, p, names)["macro_f1"]``.</span>
+</span><span id="bootstrap_ci-211"><a href="#bootstrap_ci-211"><span class="linenos">211</span></a><span class="sd">    n_boot : int</span>
+</span><span id="bootstrap_ci-212"><a href="#bootstrap_ci-212"><span class="linenos">212</span></a><span class="sd">        Number of bootstrap resamples.</span>
+</span><span id="bootstrap_ci-213"><a href="#bootstrap_ci-213"><span class="linenos">213</span></a><span class="sd">    alpha : float</span>
+</span><span id="bootstrap_ci-214"><a href="#bootstrap_ci-214"><span class="linenos">214</span></a><span class="sd">        1 - confidence level (0.05 gives a 95 % interval).</span>
+</span><span id="bootstrap_ci-215"><a href="#bootstrap_ci-215"><span class="linenos">215</span></a><span class="sd">    seed : int</span>
+</span><span id="bootstrap_ci-216"><a href="#bootstrap_ci-216"><span class="linenos">216</span></a><span class="sd">        Random seed.</span>
+</span><span id="bootstrap_ci-217"><a href="#bootstrap_ci-217"><span class="linenos">217</span></a>
+</span><span id="bootstrap_ci-218"><a href="#bootstrap_ci-218"><span class="linenos">218</span></a><span class="sd">    Returns</span>
+</span><span id="bootstrap_ci-219"><a href="#bootstrap_ci-219"><span class="linenos">219</span></a><span class="sd">    -------</span>
+</span><span id="bootstrap_ci-220"><a href="#bootstrap_ci-220"><span class="linenos">220</span></a><span class="sd">    dict</span>
+</span><span id="bootstrap_ci-221"><a href="#bootstrap_ci-221"><span class="linenos">221</span></a><span class="sd">        ``estimate`` (on the full set), ``low``, ``high``, ``std``.</span>
+</span><span id="bootstrap_ci-222"><a href="#bootstrap_ci-222"><span class="linenos">222</span></a><span class="sd">    """</span>
+</span><span id="bootstrap_ci-223"><a href="#bootstrap_ci-223"><span class="linenos">223</span></a>    <span class="n">t</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y_true</span><span class="p">)</span>
+</span><span id="bootstrap_ci-224"><a href="#bootstrap_ci-224"><span class="linenos">224</span></a>    <span class="n">p</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">y_pred</span><span class="p">)</span>
+</span><span id="bootstrap_ci-225"><a href="#bootstrap_ci-225"><span class="linenos">225</span></a>    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+</span><span id="bootstrap_ci-226"><a href="#bootstrap_ci-226"><span class="linenos">226</span></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"y_true and y_pred must be non-empty and the same length"</span><span class="p">)</span>
+</span><span id="bootstrap_ci-227"><a href="#bootstrap_ci-227"><span class="linenos">227</span></a>    <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+</span><span id="bootstrap_ci-228"><a href="#bootstrap_ci-228"><span class="linenos">228</span></a>    <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+</span><span id="bootstrap_ci-229"><a href="#bootstrap_ci-229"><span class="linenos">229</span></a>    <span class="n">vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">n_boot</span><span class="p">)</span>
+</span><span id="bootstrap_ci-230"><a href="#bootstrap_ci-230"><span class="linenos">230</span></a>    <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_boot</span><span class="p">):</span>
+</span><span id="bootstrap_ci-231"><a href="#bootstrap_ci-231"><span class="linenos">231</span></a>        <span class="n">idx</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+</span><span id="bootstrap_ci-232"><a href="#bootstrap_ci-232"><span class="linenos">232</span></a>        <span class="n">vals</span><span class="p">[</span><span class="n">b</span><span class="p">]</span> <span class="o">=</span> <span class="n">metric</span><span class="p">(</span><span class="n">t</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="n">p</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span>
+</span><span id="bootstrap_ci-233"><a href="#bootstrap_ci-233"><span class="linenos">233</span></a>    <span class="k">return</span> <span class="p">{</span><span class="s2">"estimate"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">metric</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">p</span><span class="p">)),</span>
+</span><span id="bootstrap_ci-234"><a href="#bootstrap_ci-234"><span class="linenos">234</span></a>            <span class="s2">"low"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nanpercentile</span><span class="p">(</span><span class="n">vals</span><span class="p">,</span> <span class="mi">100</span> <span class="o">*</span> <span class="n">alpha</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)),</span>
+</span><span id="bootstrap_ci-235"><a href="#bootstrap_ci-235"><span class="linenos">235</span></a>            <span class="s2">"high"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nanpercentile</span><span class="p">(</span><span class="n">vals</span><span class="p">,</span> <span class="mi">100</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">alpha</span> <span class="o">/</span> <span class="mi">2</span><span class="p">))),</span>
+</span><span id="bootstrap_ci-236"><a href="#bootstrap_ci-236"><span class="linenos">236</span></a>            <span class="s2">"std"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nanstd</span><span class="p">(</span><span class="n">vals</span><span class="p">))}</span>
+</span></pre></div>
+
+
+            <div class="docstring"><p>Bootstrap confidence interval for any tray-level metric.</p>
+
+<p>Trays are resampled with replacement <code>n_boot</code> times and the metric recomputed,
+giving an estimate of how much the result could change with a different test set
+of the same size. Essential here because the test split has only 80 trays.</p>
+
+<h6 id="parameters">Parameters</h6>
+
+<ul>
+<li><strong>y_true, y_pred</strong> (numpy.ndarray):
+Shape (n_images, n_classes).</li>
+<li><strong>metric</strong> (callable):
+<code>metric(y_true, y_pred) -&gt; float</code>, e.g.
+<code>lambda t, p: multilabel_report(t, p, names)["macro_f1"]</code>.</li>
+<li><strong>n_boot</strong> (int):
+Number of bootstrap resamples.</li>
+<li><strong>alpha</strong> (float):
+1 - confidence level (0.05 gives a 95 % interval).</li>
+<li><strong>seed</strong> (int):
+Random seed.</li>
+</ul>
+
+<h6 id="returns">Returns</h6>
+
+<ul>
+<li><strong>dict</strong>: <code>estimate</code> (on the full set), <code>low</code>, <code>high</code>, <code>std</code>.</li>
 </ul>
 </div>
 

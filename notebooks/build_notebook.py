@@ -258,6 +258,53 @@ plt.tight_layout(); plt.savefig("results/occlusion_maps.png", dpi=130); plt.show
 """)
 
 code(r"""
+# 9b. ROBUSTNESS OF THE VALIDATION: near-duplicate video frames + bootstrap confidence intervals
+!git pull -q
+import importlib, porkinspect.data, porkinspect.metrics
+importlib.reload(porkinspect.data); importlib.reload(porkinspect.metrics)
+from porkinspect.data import near_duplicate_leaks
+from porkinspect.metrics import bootstrap_ci, multilabel_report
+
+MODELS = {"YOLOv8n detector": S_yolo, "Baseline CNN": S_cnn}
+GOOD = [c for c in CLASS_NAMES if c in ("packaging-error", "unsealed")]   # classes with enough test cases
+gi = [CLASS_NAMES.index(c) for c in GOOD]
+robust = {"leakage_windows": [], "bootstrap": {}}
+
+# (a) How many test trays have a near-identical training frame, and do scores drop without them?
+print("window | leaked test trays | leak-free n | " + " | ".join(f"{m} macroF1 / tray acc" for m in MODELS))
+for w in (0, 2, 10, 30, 100):
+    leaked = set(near_duplicate_leaks(records["train"] + records["valid"], records["test"], window=w))
+    keep = [i for i in range(len(records["test"])) if i not in leaked]
+    row = {"window": w, "leaked": len(leaked), "n_clean": len(keep)}
+    cells = []
+    for m, S in MODELS.items():
+        r = multilabel_report(Y["test"][keep], S["test"][keep] >= results[m]["threshold"], CLASS_NAMES)
+        row[m] = {"macro_f1": r["macro_f1"], "tray_accuracy": r["tray"]["accuracy"]}
+        cells.append(f"{r['macro_f1']:.3f} / {r['tray']['accuracy']:.3f}")
+    robust["leakage_windows"].append(row)
+    print(f"{w:6d} | {len(leaked):17d} | {len(keep):11d} | " + " | ".join(cells))
+
+# (b) 95 % bootstrap confidence intervals on the full test set (80 trays)
+for m, S in MODELS.items():
+    P = S["test"] >= results[m]["threshold"]
+    robust["bootstrap"][m] = {
+        "macro_f1_all": bootstrap_ci(Y["test"], P, lambda t, p: multilabel_report(t, p, CLASS_NAMES)["macro_f1"]),
+        "macro_f1_main_classes": bootstrap_ci(Y["test"][:, gi], P[:, gi], lambda t, p: multilabel_report(t, p, GOOD)["macro_f1"]),
+        "tray_accuracy": bootstrap_ci(Y["test"], P, lambda t, p: multilabel_report(t, p, CLASS_NAMES)["tray"]["accuracy"]),
+        "defective_trays_caught": bootstrap_ci(Y["test"], P, lambda t, p: multilabel_report(t, p, CLASS_NAMES)["tray"]["fail_recall"]),
+    }
+    print(f"\n{m} (95% CI, 2000 resamples)")
+    for k, v in robust["bootstrap"][m].items():
+        print(f"   {k:24s} {v['estimate']:.3f}  [{v['low']:.3f}, {v['high']:.3f}]")
+
+Path("results/robustness.json").write_text(json.dumps(robust, indent=2, default=float))
+np.savez("results/scores.npz", Y_valid=Y["valid"], Y_test=Y["test"],
+         yolo_valid=S_yolo["valid"], yolo_test=S_yolo["test"], cnn_valid=S_cnn["valid"], cnn_test=S_cnn["test"],
+         test_files=np.array([r.image_path.name for r in records["test"]]))
+print("\nsaved results/robustness.json and results/scores.npz")
+""")
+
+code(r"""
 # 10. SAVE: summary table + JSON, then download results.zip
 rows = ["| Model | Threshold (val) | Test macro F1 | Test macro recall | Test micro F1 | Exact match | GPU ms/img | CPU ms/img |",
         "|---|---|---|---|---|---|---|---|"]

@@ -53,3 +53,22 @@ def test_threshold_sweep_monotone_recall():
     assert np.all(np.diff(sw["micro_recall"]) <= 1e-12)   # recall never increases
     t = best_threshold(sw)
     assert 0.05 <= t <= 0.95
+
+
+from porkinspect.metrics import bootstrap_ci
+
+
+def test_bootstrap_ci_contains_estimate_and_shrinks_with_n():
+    rng = np.random.default_rng(1)
+    f = lambda t, p: float(np.mean(t == p))
+    small_t = rng.integers(0, 2, (40, 1)); small_p = np.where(rng.random((40, 1)) < .8, small_t, 1 - small_t)
+    big_t = rng.integers(0, 2, (800, 1)); big_p = np.where(rng.random((800, 1)) < .8, big_t, 1 - big_t)
+    a = bootstrap_ci(small_t, small_p, f, n_boot=500)
+    b = bootstrap_ci(big_t, big_p, f, n_boot=500)
+    assert a["low"] <= a["estimate"] <= a["high"]
+    assert (b["high"] - b["low"]) < (a["high"] - a["low"])
+
+
+def test_bootstrap_ci_rejects_empty():
+    with pytest.raises(ValueError):
+        bootstrap_ci(np.zeros((0, 2)), np.zeros((0, 2)), lambda t, p: 0.0)
