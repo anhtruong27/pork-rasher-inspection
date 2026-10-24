@@ -35,20 +35,35 @@ Total time is about 60–90 min, mostly YOLO training.
 """)
 
 code(r"""
-# 1. SETUP: clone the repo (public) and install packages.
+# 1. SETUP: works on Colab, Kaggle, or locally (VS Code, opened from the repo's notebooks/ folder)
 GITHUB_USER = "anhtruong27"
 REPO = "pork-rasher-inspection"
 
-import os, sys
-if not os.path.exists(REPO):
-    !git clone https://github.com/{GITHUB_USER}/{REPO}.git
-%cd {REPO}
-!pip install -q ultralytics roboflow
+import os, sys, shutil
+from pathlib import Path
+here = Path.cwd()
+LOCAL = True
+if (here / "src" / "porkinspect").exists():                 # already at the repo root (local)
+    pass
+elif (here.parent / "src" / "porkinspect").exists():        # opened from notebooks/ (local)
+    os.chdir(here.parent)
+else:                                                        # Colab / Kaggle: get the code from GitHub
+    LOCAL = False
+    if not os.path.exists(REPO):
+        !git clone https://github.com/{GITHUB_USER}/{REPO}.git
+    os.chdir(REPO)
+%pip install -q ultralytics roboflow
 sys.path.insert(0, "src")
-os.makedirs("results", exist_ok=True)
+
+# Settings
+OUT = "results/run1_local" if LOCAL else "results"   # locally: never overwrite the committed run-1 results
+DATA_DIR = "data"     # local Windows: use a short path with only English letters, e.g. "C:/mma_data"
+BATCH = 16            # lower to 8 if you get "CUDA out of memory" (6 GB laptop GPU)
+os.makedirs(OUT, exist_ok=True)
 
 import torch
-print("GPU:", torch.cuda.get_device_name(0) if torch.cuda.is_available() else "NONE - switch runtime to T4 GPU!")
+print("Working in", os.getcwd(), "| results ->", OUT)
+print("GPU:", torch.cuda.get_device_name(0) if torch.cuda.is_available() else "NONE - switch runtime to T4 GPU (Colab) / select a CUDA kernel (local)!")
 """)
 
 code(r"""
@@ -61,10 +76,10 @@ import yaml
 rf = Roboflow(api_key=getpass("Roboflow API key: "))
 project = rf.workspace("hello-2aqe0").project("pork-rasher-error-packaging")
 DATASET_VERSION = 4
-ds = project.version(DATASET_VERSION).download("yolov8", location="data/pork", overwrite=True)
+ds = project.version(DATASET_VERSION).download("yolov8", location=f"{DATA_DIR}/pork", overwrite=True)
 
 # Rewrite data.yaml with absolute paths so Ultralytics finds every split.
-DATA = Path("data/pork").resolve()
+DATA = Path(f"{DATA_DIR}/pork").resolve()
 cfg = yaml.safe_load((DATA / "data.yaml").read_text())
 cfg.update({"path": str(DATA), "train": "train/images", "val": "valid/images", "test": "test/images"})
 (DATA / "data.yaml").write_text(yaml.safe_dump(cfg))
@@ -79,7 +94,7 @@ from porkinspect.data import audit_dataset
 report, records = audit_dataset(DATA, CLASS_NAMES)
 txt = report.to_text()
 print(txt)
-Path("results/dataset_audit.txt").write_text(txt)
+Path(f"{OUT}/dataset_audit.txt").write_text(txt)
 """)
 
 md(r"""
@@ -102,11 +117,11 @@ from porkinspect.detector import train_detector, box_metrics, predict_detections
 
 EPOCHS, IMGSZ = 40, 640
 t0 = time.perf_counter()
-yolo = train_detector(DATA / "data.yaml", "yolov8n.pt", epochs=EPOCHS, imgsz=IMGSZ, batch=16)
+yolo = train_detector(DATA / "data.yaml", "yolov8n.pt", epochs=EPOCHS, imgsz=IMGSZ, batch=BATCH)
 yolo_train_min = (time.perf_counter() - t0) / 60
 print(f"YOLO training time: {yolo_train_min:.1f} min")
-!cp runs/detect/yolo/results.png results/yolo_training_curves.png
-!cp runs/detect/yolo/weights/best.pt results/yolo_best.pt
+shutil.copy("runs/detect/yolo/results.png", f"{OUT}/yolo_training_curves.png")
+shutil.copy("runs/detect/yolo/weights/best.pt", f"{OUT}/yolo_best.pt")
 """)
 
 code(r"""
@@ -116,7 +131,7 @@ yolo_box = {"val": box_metrics(yolo, DATA / "data.yaml", "val", IMGSZ),
 print(json.dumps(yolo_box, indent=2))
 import glob, shutil
 for f in glob.glob("runs/detect/val*/confusion_matrix_normalized.png")[-1:]:
-    shutil.copy(f, "results/yolo_confusion_matrix_test.png")
+    shutil.copy(f, f"{OUT}/yolo_confusion_matrix_test.png")
 """)
 
 code(r"""
@@ -140,13 +155,13 @@ import matplotlib.pyplot as plt
 t0 = time.perf_counter()
 cnn, hist = train_baseline(records["train"], records["valid"], N, epochs=25, batch_size=32)
 cnn_train_min = (time.perf_counter() - t0) / 60
-torch.save(cnn.state_dict(), "results/cnn_best.pt")
+torch.save(cnn.state_dict(), f"{OUT}/cnn_best.pt")
 
 fig, ax = plt.subplots(1, 2, figsize=(11, 4))
 ax[0].plot(hist["train_loss"], label="train"); ax[0].plot(hist["val_loss"], label="validation")
 ax[0].set(xlabel="epoch", ylabel="BCE loss", title="Baseline CNN loss"); ax[0].legend()
 ax[1].plot(hist["val_macro_f1"]); ax[1].set(xlabel="epoch", ylabel="macro F1", title="Baseline CNN validation macro F1")
-plt.tight_layout(); plt.savefig("results/cnn_training_curves.png", dpi=150); plt.show()
+plt.tight_layout(); plt.savefig(f"{OUT}/cnn_training_curves.png", dpi=150); plt.show()
 
 S_cnn = {s: predict_scores(cnn, DataLoader(TrayDataset(records[s], N), batch_size=64), "cuda")[0] for s in ("valid", "test")}
 """)
@@ -186,7 +201,7 @@ for a, name in zip(ax, results):
     a.axvline(results[name]["threshold"], ls="--", c="grey", label="chosen (val)")
     a.set(title=name, xlabel="decision threshold"); a.legend()
 ax[0].set_ylabel("score")
-plt.tight_layout(); plt.savefig("results/threshold_sensitivity.png", dpi=150); plt.show()
+plt.tight_layout(); plt.savefig(f"{OUT}/threshold_sensitivity.png", dpi=150); plt.show()
 """)
 
 code(r"""
@@ -254,12 +269,13 @@ for ax, (i, ok) in zip(axes.ravel(), chosen):
         return float(cf.max()) if len(cf) else 0.0
     heat, base = occlusion_map(score, img, patch=90, stride=45)
     overlay(img, heat, ax=ax, title=f"{'CORRECT' if ok else 'WRONG'} | {CLASS_NAMES[c]} | score {base:.2f}")
-plt.tight_layout(); plt.savefig("results/occlusion_maps.png", dpi=130); plt.show()
+plt.tight_layout(); plt.savefig(f"{OUT}/occlusion_maps.png", dpi=130); plt.show()
 """)
 
 code(r"""
 # 9b. ROBUSTNESS OF THE VALIDATION: near-duplicate video frames + bootstrap confidence intervals
-!git pull -q
+if not LOCAL:
+    !git pull -q
 import importlib, porkinspect.data, porkinspect.metrics
 importlib.reload(porkinspect.data); importlib.reload(porkinspect.metrics)
 from porkinspect.data import near_duplicate_leaks
@@ -297,11 +313,11 @@ for m, S in MODELS.items():
     for k, v in robust["bootstrap"][m].items():
         print(f"   {k:24s} {v['estimate']:.3f}  [{v['low']:.3f}, {v['high']:.3f}]")
 
-Path("results/robustness.json").write_text(json.dumps(robust, indent=2, default=float))
-np.savez("results/scores.npz", Y_valid=Y["valid"], Y_test=Y["test"],
+Path(f"{OUT}/robustness.json").write_text(json.dumps(robust, indent=2, default=float))
+np.savez(f"{OUT}/scores.npz", Y_valid=Y["valid"], Y_test=Y["test"],
          yolo_valid=S_yolo["valid"], yolo_test=S_yolo["test"], cnn_valid=S_cnn["valid"], cnn_test=S_cnn["test"],
          test_files=np.array([r.image_path.name for r in records["test"]]))
-print("\nsaved results/robustness.json and results/scores.npz")
+print(f"\nsaved {OUT}/robustness.json and {OUT}/scores.npz")
 """)
 
 code(r"""
@@ -314,13 +330,19 @@ for name in ("YOLOv8n detector", "Baseline CNN"):
     rows.append(f"| {name} | {r['threshold']} | {t['macro_f1']:.3f} | {t['macro_recall']:.3f} | {t['micro']['f1']:.3f} | {t['exact_match']:.3f} | {p['gpu_ms']:.1f} | {p['cpu_ms']:.1f} |")
 table = "\n".join(rows)
 print(table)
-Path("results/comparison_table.md").write_text(table + "\n")
+Path(f"{OUT}/comparison_table.md").write_text(table + "\n")
 results["yolo_box_metrics"] = yolo_box
-Path("results/results.json").write_text(json.dumps(results, indent=2, default=float))
+Path(f"{OUT}/results.json").write_text(json.dumps(results, indent=2, default=float))
 
-!zip -qr results.zip results
-from google.colab import files
-files.download("results.zip")
+if LOCAL:
+    print("Results are already in", os.path.abspath(OUT))
+else:
+    shutil.make_archive("results", "zip", root_dir=".", base_dir=OUT)
+    try:                                   # Google Colab: download straight away
+        from google.colab import files
+        files.download("results.zip")
+    except ImportError:                    # Kaggle: use the Output panel
+        print("Download results.zip from the Output panel:", os.path.abspath("results.zip"))
 """)
 
 nb = {"cells": cells, "metadata": {"accelerator": "GPU", "colab": {"provenance": []},

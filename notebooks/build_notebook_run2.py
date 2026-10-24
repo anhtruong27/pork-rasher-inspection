@@ -28,21 +28,30 @@ What changes from run 1, and why (evidence from run 1):
 | CNN trained 50 epochs | Run 1 validation F1 was still rising at epoch 25 |
 | "Always FAIL" baseline + paired bootstrap built in | Needed to judge whether a model learned anything |
 
-Runtime → Change runtime type → **T4 GPU**, then run the cells **one at a time** down to cell 4 and set `GAP` from what it prints. Then Runtime → Run after. About 2 hours.
+**Local (RTX GPU, VS Code):** open this notebook from the repo's `notebooks/` folder; results are written straight into `results/run2/`. **Colab:** Runtime → Change runtime type → **T4 GPU**. **Kaggle:** Settings → Accelerator → **GPU T4 x2** (or P100) and Internet **on**. Then run the cells **one at a time** down to cell 4 and set `GAP` from what it prints. Then Runtime → Run after. About 2 hours.
 """)
 
 code(r"""
 # 1. SETUP
+# Works in three places: Colab, Kaggle, or locally (VS Code, opened from the repo's notebooks/ folder).
 GITHUB_USER, REPO = "anhtruong27", "pork-rasher-inspection"
-import os, sys
-if not os.path.exists(REPO):
-    !git clone https://github.com/{GITHUB_USER}/{REPO}.git
-%cd {REPO}
-!git pull -q
-!pip install -q ultralytics roboflow
+import os, sys, shutil
+from pathlib import Path
+here = Path.cwd()
+if (here / "src" / "porkinspect").exists():                 # already at the repo root (local)
+    pass
+elif (here.parent / "src" / "porkinspect").exists():        # opened from notebooks/ (local)
+    os.chdir(here.parent)
+else:                                                        # Colab / Kaggle: get the code from GitHub
+    if not os.path.exists(REPO):
+        !git clone https://github.com/{GITHUB_USER}/{REPO}.git
+    os.chdir(REPO)
+    !git pull -q
+%pip install -q ultralytics roboflow
+print("Working in", os.getcwd())
 sys.path.insert(0, "src")
 import torch
-print("GPU:", torch.cuda.get_device_name(0) if torch.cuda.is_available() else "NONE - switch runtime to T4 GPU!")
+print("GPU:", torch.cuda.get_device_name(0) if torch.cuda.is_available() else "NONE - switch runtime to T4 GPU (Colab) or Accelerator GPU (Kaggle)!")
 """)
 
 code(r"""
@@ -53,10 +62,12 @@ VALID_FRAC = 0.10     # share for validation
 YOLO_MODELS = ["yolov8n.pt", "yolov8s.pt"]   # Task 2: candidates, best picked on VALIDATION
 IMGSZ = 640           # Task 2: input size (480 or 640), justify from the run-1 resolution study
 EPOCHS = 40
+BATCH = 16           # lower to 8 if you get "CUDA out of memory" (6 GB laptop GPU + yolov8s)
 CNN_EPOCHS = 50
 MISS_COST = 10        # Task 3: cost of passing a defective tray ...
 WASTE_COST = 1        # ... relative to rejecting a good tray
 OUT = "results/run2"
+DATA_DIR = "data"     # local Windows: use a short path with only English letters, e.g. "C:/mma_data"
 os.makedirs(OUT, exist_ok=True)
 """)
 
@@ -68,8 +79,8 @@ from pathlib import Path
 import yaml, json, time
 import numpy as np, matplotlib.pyplot as plt
 rf = Roboflow(api_key=getpass("Roboflow API key: "))
-rf.workspace("hello-2aqe0").project("pork-rasher-error-packaging").version(4).download("yolov8", location="data/pork", overwrite=True)
-DATA = Path("data/pork").resolve()
+rf.workspace("hello-2aqe0").project("pork-rasher-error-packaging").version(4).download("yolov8", location=f"{DATA_DIR}/pork", overwrite=True)
+DATA = Path(f"{DATA_DIR}/pork").resolve()
 cfg = yaml.safe_load((DATA / "data.yaml").read_text())
 CLASS_NAMES = list(cfg["names"]) if isinstance(cfg["names"], list) else [cfg["names"][k] for k in sorted(cfg["names"])]
 N = len(CLASS_NAMES)
@@ -106,7 +117,7 @@ from porkinspect.data import segment_split, write_yolo_split, near_duplicate_lea
 main = [CLASS_NAMES.index(c) for c in ("packaging-error", "unsealed")]
 split = segment_split(ALL, gap=GAP, test_frac=TEST_FRAC, valid_frac=VALID_FRAC, n_classes=N,
                       must_have=main, min_pass=5, seed=0)
-DATA2 = write_yolo_split(split, "data/pork_run2", CLASS_NAMES)
+DATA2 = write_yolo_split(split, f"{DATA_DIR}/pork_run2", CLASS_NAMES)
 report2, records = audit_dataset(DATA2.parent, CLASS_NAMES)
 txt = report2.to_text() + f"\n\nGAP = {GAP}, split seed = {split['seed']}\n"
 for w in (0, 2, 10, 30, GAP):
@@ -140,11 +151,11 @@ yolo, S, box, train_min = {}, {}, {}, {}
 for w in YOLO_MODELS:
     name = w.replace(".pt", "")
     t0 = time.perf_counter()
-    yolo[name] = train_detector(DATA2, w, epochs=EPOCHS, imgsz=IMGSZ, batch=16, name=f"run2_{name}")
+    yolo[name] = train_detector(DATA2, w, epochs=EPOCHS, imgsz=IMGSZ, batch=BATCH, name=f"run2_{name}")
     train_min[name] = (time.perf_counter() - t0) / 60
     box[name] = {"val": box_metrics(yolo[name], DATA2, "val", IMGSZ), "test": box_metrics(yolo[name], DATA2, "test", IMGSZ)}
     S[name] = {s: detections_to_scores(predict_detections(yolo[name], [r.image_path for r in records[s]], imgsz=IMGSZ), N) for s in ("valid", "test")}
-    !cp runs/detect/run2_{name}/results.png {OUT}/{name}_training_curves.png
+    shutil.copy(f"runs/detect/run2_{name}/results.png", f"{OUT}/{name}_training_curves.png")
     print(name, f"{train_min[name]:.1f} min", "val mAP50", round(box[name]["val"]["map50"], 3))
 BEST = max(box, key=lambda k: box[k]["val"]["map50"])
 print("Chosen on validation:", BEST)
@@ -263,10 +274,13 @@ Path(f"{OUT}/results.json").write_text(json.dumps(results, indent=1, default=flo
 np.savez(f"{OUT}/scores.npz", Y_valid=Y["valid"], Y_test=Y["test"],
          **{f"{m}_{s}": S[m][s] for m in S for s in ("valid", "test")},
          test_files=np.array([r.image_path.name for r in records["test"]]))
-!cp runs/detect/run2_{BEST}/weights/best.pt {OUT}/{BEST}_best.pt
-!zip -qr results_run2.zip {OUT}
-from google.colab import files
-files.download("results_run2.zip")
+shutil.copy(f"runs/detect/run2_{BEST}/weights/best.pt", f"{OUT}/{BEST}_best.pt")
+shutil.make_archive("results_run2", "zip", root_dir=".", base_dir=OUT)
+try:                                   # Google Colab: download straight away
+    from google.colab import files
+    files.download("results_run2.zip")
+except ImportError:                    # Kaggle / local: the file is in the working folder
+    print("Download results_run2.zip from the Output panel (Kaggle) or the file browser:", os.path.abspath("results_run2.zip"))
 """)
 
 nb = {"cells": cells, "metadata": {"accelerator": "GPU", "colab": {"provenance": []},
