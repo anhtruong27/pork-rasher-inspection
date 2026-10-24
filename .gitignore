@@ -2,6 +2,8 @@
 data/
 datasets/
 runs/
+weights/
+results_run2.zip
 *.pt
 *.pth
 *.zip

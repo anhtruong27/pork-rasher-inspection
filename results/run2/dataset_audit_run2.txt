@@ -1,0 +1,22 @@
+DATASET AUDIT
+=============
+train:  2645 images,  520 with no defect boxes
+valid:   145 images,   39 with no defect boxes
+ test:   195 images,   29 with no defect boxes
+
+class                        train           valid            test   (boxes / images containing class)
+loose-meat               57 / 56           2 / 2            3 / 3    
+packaging-error        1333 / 1196        55 / 47         100 / 87   
+twisted-meat             51 / 51           6 / 5            4 / 4    
+unsealed                891 / 891         50 / 50          76 / 76   
+wrinkle                  12 / 12           2 / 2            0 / 0    
+
+Malformed label files: 0
+Original photos appearing in more than one split (leakage): 0
+
+GAP = 30, split seed = 0
+test trays with a train/valid frame within    0 frames: 0
+test trays with a train/valid frame within    2 frames: 0
+test trays with a train/valid frame within   10 frames: 0
+test trays with a train/valid frame within   30 frames: 0
+test trays with a train/valid frame within   30 frames: 0

@@ -57,16 +57,21 @@ def train_detector(data_yaml: Union[str, Path], model_name: str = "yolov8n.pt",
     """
     from ultralytics import YOLO
 
+    # Newer Ultralytics versions put a RELATIVE project folder inside their own runs
+    # folder (runs/detect/runs/detect/...), so pass an absolute path.
+    project = str(Path(project).resolve())
     model = YOLO(model_name)
     model.train(data=str(data_yaml), epochs=epochs, imgsz=imgsz, batch=batch,
                 project=project, name=name, seed=seed, patience=patience,
                 deterministic=True, exist_ok=True, **kwargs)
-    best = Path(project) / name / "weights" / "best.pt"
+    trainer = getattr(model, "trainer", None)
+    save_dir = Path(getattr(trainer, "save_dir", Path(project) / name))
+    best = save_dir / "weights" / "best.pt"
     return YOLO(str(best)) if best.exists() else model
 
 
 def box_metrics(model, data_yaml: Union[str, Path], split: str = "test",
-                imgsz: int = 640) -> Dict[str, object]:
+                imgsz: int = 640, workers: int = 2) -> Dict[str, object]:
     """Box-level detection metrics from the Ultralytics validator.
 
     Parameters
@@ -79,6 +84,8 @@ def box_metrics(model, data_yaml: Union[str, Path], split: str = "test",
         ``"val"`` or ``"test"``.
     imgsz : int
         Image size.
+    workers : int
+        Image-loading processes (Ultralytics' default of 8 can exhaust RAM on a laptop).
 
     Returns
     -------
@@ -86,7 +93,8 @@ def box_metrics(model, data_yaml: Union[str, Path], split: str = "test",
         ``map50``, ``map50_95``, ``precision``, ``recall`` (means over classes) and
         ``per_class_map50`` (dict).
     """
-    r = model.val(data=str(data_yaml), split=split, imgsz=imgsz, verbose=False, plots=True)
+    r = model.val(data=str(data_yaml), split=split, imgsz=imgsz, verbose=False, plots=True,
+                  workers=workers)
     names = r.names if hasattr(r, "names") else model.names
     per_class = {}
     for i, c in enumerate(r.box.ap_class_index):

@@ -28,7 +28,7 @@ What changes from run 1, and why (evidence from run 1):
 | CNN trained 50 epochs | Run 1 validation F1 was still rising at epoch 25 |
 | "Always FAIL" baseline + paired bootstrap built in | Needed to judge whether a model learned anything |
 
-**Local (RTX GPU, VS Code):** open this notebook from the repo's `notebooks/` folder; results are written straight into `results/run2/`. **Colab:** Runtime → Change runtime type → **T4 GPU**. **Kaggle:** Settings → Accelerator → **GPU T4 x2** (or P100) and Internet **on**. Then run the cells **one at a time** down to cell 4 and set `GAP` from what it prints. Then Runtime → Run after. About 2 hours.
+**Local (RTX GPU, VS Code):** open this notebook from the repo's `notebooks/` folder; results are written straight into `results/run2/`. **Colab:** Runtime → Change runtime type → **T4 GPU**. **Kaggle:** Settings → Accelerator → **GPU T4 x2** (or P100) and Internet **on**. Close other heavy apps (browser tabs, games) before a local run: training needs several GB of RAM. Then run the cells **one at a time** down to cell 4 and set `GAP` from what it prints. Then Runtime → Run after. About 2 hours.
 """)
 
 code(r"""
@@ -50,19 +50,22 @@ else:                                                        # Colab / Kaggle: g
 %pip install -q ultralytics roboflow
 print("Working in", os.getcwd())
 sys.path.insert(0, "src")
-import torch
+import torch, psutil
 print("GPU:", torch.cuda.get_device_name(0) if torch.cuda.is_available() else "NONE - switch runtime to T4 GPU (Colab) or Accelerator GPU (Kaggle)!")
+ram = psutil.virtual_memory()
+print(f"RAM: {ram.available / 1e9:.1f} GB free of {ram.total / 1e9:.1f} GB" + ("  <- close other apps before training" if ram.available < 6e9 else ""))
 """)
 
 code(r"""
 # 2. SETTINGS FOR RUN 2  (your decisions: write the reason next to each one)
-GAP = None            # Task 1: frame gap G that separates segments (set after cell 4)
+GAP = 30              # Task 1: no natural break in the frame-gap histogram; largest gap that still leaves 49 segments; >30 frames ~ 1 s if 30 fps
 TEST_FRAC = 0.15      # share of original photos held out for test
 VALID_FRAC = 0.10     # share for validation
 YOLO_MODELS = ["yolov8n.pt", "yolov8s.pt"]   # Task 2: candidates, best picked on VALIDATION
 IMGSZ = 640           # Task 2: input size (480 or 640), justify from the run-1 resolution study
 EPOCHS = 40
-BATCH = 16           # lower to 8 if you get "CUDA out of memory" (6 GB laptop GPU + yolov8s)
+BATCH = 16            # lower to 8 if you get "CUDA out of memory" (6 GB laptop GPU + yolov8s)
+WORKERS = 2           # image-loading processes; Ultralytics' default (8) ran out of RAM on a Windows laptop
 CNN_EPOCHS = 50
 MISS_COST = 10        # Task 3: cost of passing a defective tray ...
 WASTE_COST = 1        # ... relative to rejecting a good tray
@@ -147,16 +150,26 @@ from porkinspect.detector import train_detector, box_metrics, predict_detections
 from porkinspect.data import presence_vector
 def truth(recs): return np.stack([presence_vector(r.boxes, N) for r in recs])
 Y = {s: truth(records[s]) for s in ("valid", "test")}
+def newest(pattern):   # most recent file/folder under runs/ matching pattern (Ultralytics may nest folders)
+    hits = sorted(Path("runs").resolve().rglob(pattern), key=lambda p: p.stat().st_mtime)
+    if not hits:
+        raise FileNotFoundError(f"nothing matching {pattern} under runs/")
+    return hits[-1]
+def run_dir(run_name):   # training folder of a run, found by name wherever Ultralytics put it
+    return newest(f"{run_name}/weights").parent
+import gc
 yolo, S, box, train_min = {}, {}, {}, {}
 for w in YOLO_MODELS:
     name = w.replace(".pt", "")
     t0 = time.perf_counter()
-    yolo[name] = train_detector(DATA2, w, epochs=EPOCHS, imgsz=IMGSZ, batch=BATCH, name=f"run2_{name}")
+    yolo[name] = train_detector(DATA2, w, epochs=EPOCHS, imgsz=IMGSZ, batch=BATCH, name=f"run2_{name}", workers=WORKERS)
     train_min[name] = (time.perf_counter() - t0) / 60
     box[name] = {"val": box_metrics(yolo[name], DATA2, "val", IMGSZ), "test": box_metrics(yolo[name], DATA2, "test", IMGSZ)}
+    shutil.copy(newest("confusion_matrix_normalized.png"), f"{OUT}/{name}_confusion_matrix_test.png")   # test ran last
+    shutil.copy(run_dir(f"run2_{name}") / "results.png", f"{OUT}/{name}_training_curves.png")
     S[name] = {s: detections_to_scores(predict_detections(yolo[name], [r.image_path for r in records[s]], imgsz=IMGSZ), N) for s in ("valid", "test")}
-    shutil.copy(f"runs/detect/run2_{name}/results.png", f"{OUT}/{name}_training_curves.png")
     print(name, f"{train_min[name]:.1f} min", "val mAP50", round(box[name]["val"]["map50"], 3))
+    gc.collect(); torch.cuda.empty_cache()        # free RAM / GPU memory before the next model
 BEST = max(box, key=lambda k: box[k]["val"]["map50"])
 print("Chosen on validation:", BEST)
 """)
@@ -166,14 +179,15 @@ code(r"""
 from porkinspect.baseline import train_baseline, predict_scores, TrayDataset
 from torch.utils.data import DataLoader
 t0 = time.perf_counter()
-cnn, hist = train_baseline(records["train"], records["valid"], N, epochs=CNN_EPOCHS, batch_size=32)
+gc.collect(); torch.cuda.empty_cache()
+cnn, hist = train_baseline(records["train"], records["valid"], N, epochs=CNN_EPOCHS, batch_size=32, num_workers=WORKERS)
 train_min["cnn"] = (time.perf_counter() - t0) / 60
-S["cnn"] = {s: predict_scores(cnn, DataLoader(TrayDataset(records[s], N), batch_size=64), "cuda")[0] for s in ("valid", "test")}
+S["cnn"] = {s: predict_scores(cnn, DataLoader(TrayDataset(records[s], N), batch_size=64, num_workers=0), "cuda")[0] for s in ("valid", "test")}
 fig, ax = plt.subplots(1, 2, figsize=(11, 4))
 ax[0].plot(hist["train_loss"], label="train"); ax[0].plot(hist["val_loss"], label="validation"); ax[0].legend()
 ax[0].set(xlabel="epoch", ylabel="BCE loss", title="Baseline CNN loss")
 ax[1].plot(hist["val_macro_f1"]); ax[1].set(xlabel="epoch", ylabel="macro F1", title="Validation macro F1")
-plt.tight_layout(); plt.savefig(f"{OUT}/cnn_training_curves.png", dpi=150); plt.show()
+plt.tight_layout(); plt.savefig(f"{OUT}/cnn_training_curves.png", dpi=150); plt.show(); plt.close("all")
 """)
 
 code(r"""
@@ -274,7 +288,7 @@ Path(f"{OUT}/results.json").write_text(json.dumps(results, indent=1, default=flo
 np.savez(f"{OUT}/scores.npz", Y_valid=Y["valid"], Y_test=Y["test"],
          **{f"{m}_{s}": S[m][s] for m in S for s in ("valid", "test")},
          test_files=np.array([r.image_path.name for r in records["test"]]))
-shutil.copy(f"runs/detect/run2_{BEST}/weights/best.pt", f"{OUT}/{BEST}_best.pt")
+shutil.copy(run_dir(f"run2_{BEST}") / "weights" / "best.pt", f"{OUT}/{BEST}_best.pt")
 shutil.make_archive("results_run2", "zip", root_dir=".", base_dir=OUT)
 try:                                   # Google Colab: download straight away
     from google.colab import files

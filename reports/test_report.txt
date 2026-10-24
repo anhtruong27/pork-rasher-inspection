@@ -82,4 +82,4 @@ tests/test_models.py::test_occlusion_finds_the_important_region PASSED   [ 97%]
 tests/test_models.py::test_occlusion_invalid_args PASSED                 [ 98%]
 tests/test_models.py::test_overlay_colour_scale_starts_at_zero PASSED    [100%]
 
-============================== 73 passed in 2.46s ==============================
+============================== 73 passed in 1.84s ==============================

@@ -59,6 +59,7 @@ sys.path.insert(0, "src")
 OUT = "results/run1_local" if LOCAL else "results"   # locally: never overwrite the committed run-1 results
 DATA_DIR = "data"     # local Windows: use a short path with only English letters, e.g. "C:/mma_data"
 BATCH = 16            # lower to 8 if you get "CUDA out of memory" (6 GB laptop GPU)
+WORKERS = 2           # image-loading processes; Ultralytics' default (8) can run out of RAM on a laptop
 os.makedirs(OUT, exist_ok=True)
 
 import torch
@@ -115,13 +116,21 @@ code(r"""
 import time, json
 from porkinspect.detector import train_detector, box_metrics, predict_detections, detections_to_scores, model_gflops
 
+def newest(pattern):   # most recent file/folder under runs/ matching pattern (Ultralytics may nest folders)
+    hits = sorted(Path("runs").resolve().rglob(pattern), key=lambda p: p.stat().st_mtime)
+    if not hits:
+        raise FileNotFoundError(f"nothing matching {pattern} under runs/")
+    return hits[-1]
+def run_dir(run_name):   # training folder of a run, found by name wherever Ultralytics put it
+    return newest(f"{run_name}/weights").parent
+
 EPOCHS, IMGSZ = 40, 640
 t0 = time.perf_counter()
-yolo = train_detector(DATA / "data.yaml", "yolov8n.pt", epochs=EPOCHS, imgsz=IMGSZ, batch=BATCH)
+yolo = train_detector(DATA / "data.yaml", "yolov8n.pt", epochs=EPOCHS, imgsz=IMGSZ, batch=BATCH, workers=WORKERS)
 yolo_train_min = (time.perf_counter() - t0) / 60
 print(f"YOLO training time: {yolo_train_min:.1f} min")
-shutil.copy("runs/detect/yolo/results.png", f"{OUT}/yolo_training_curves.png")
-shutil.copy("runs/detect/yolo/weights/best.pt", f"{OUT}/yolo_best.pt")
+shutil.copy(run_dir("yolo") / "results.png", f"{OUT}/yolo_training_curves.png")
+shutil.copy(run_dir("yolo") / "weights" / "best.pt", f"{OUT}/yolo_best.pt")
 """)
 
 code(r"""
@@ -129,9 +138,7 @@ code(r"""
 yolo_box = {"val": box_metrics(yolo, DATA / "data.yaml", "val", IMGSZ),
             "test": box_metrics(yolo, DATA / "data.yaml", "test", IMGSZ)}
 print(json.dumps(yolo_box, indent=2))
-import glob, shutil
-for f in glob.glob("runs/detect/val*/confusion_matrix_normalized.png")[-1:]:
-    shutil.copy(f, f"{OUT}/yolo_confusion_matrix_test.png")
+shutil.copy(newest("confusion_matrix_normalized.png"), f"{OUT}/yolo_confusion_matrix_test.png")   # the test run was last
 """)
 
 code(r"""
@@ -153,7 +160,7 @@ from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 
 t0 = time.perf_counter()
-cnn, hist = train_baseline(records["train"], records["valid"], N, epochs=25, batch_size=32)
+cnn, hist = train_baseline(records["train"], records["valid"], N, epochs=25, batch_size=32, num_workers=WORKERS)
 cnn_train_min = (time.perf_counter() - t0) / 60
 torch.save(cnn.state_dict(), f"{OUT}/cnn_best.pt")
 
